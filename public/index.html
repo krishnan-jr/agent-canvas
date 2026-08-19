@@ -405,7 +405,7 @@
   "mcp": {
     "agent-canvas": {
       "type": "local",
-      "command": ["node", "/Users/maeve/Developer/agent-code/src/mcpServer.js"],
+      "command": ["node", "<serverPath>"],
       "enabled": true
     }
   }
@@ -424,7 +424,7 @@
             In Claude Code CLI, add via terminal command or project-level <code>.mcp.json</code> / global <code>~/.claude.json</code>:
           </div>
           <div class="mcp-sub-heading">Terminal Command:</div>
-          <pre class="mcp-code-snippet"><code id="mcp-snippet-claudecode-cli">claude mcp add agent-canvas --command="node" --args="/Users/maeve/Developer/agent-code/src/mcpServer.js"</code></pre>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-claudecode-cli">claude mcp add agent-canvas --command="node" --args="<serverPath>"</code></pre>
           <div class="mcp-tab-actions">
             <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-claudecode-cli">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -436,7 +436,7 @@
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["<serverPath>"]
     }
   }
 }</code></pre>
@@ -451,7 +451,7 @@
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["<serverPath>"]
     }
   }
 }</code></pre>
@@ -472,7 +472,7 @@
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["<serverPath>"]
     }
   }
 }</code></pre>
@@ -493,7 +493,7 @@
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["<serverPath>"]
     },
     "agent-canvas-remote": {
       "serverUrl": "http://localhost:3000/api/mcp/sse"
@@ -518,7 +518,7 @@
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["<serverPath>"]
     }
   }
 }</code></pre>

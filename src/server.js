@@ -741,6 +741,91 @@ Detailed runbook and instructions for this skill.
       return sendJson(res, 200, { success: resumed });
     }
 
+    // GET /api/mcp/config (Dynamically resolve local machine paths for MCP clients)
+    if (pathname === '/api/mcp/config' && method === 'GET') {
+      const serverPath = path.resolve(__dirname, 'mcpServer.js');
+      const nodePath = 'node';
+      const hostHeader = req.headers.host || `localhost:${PORT}`;
+      const origin = `http://${hostHeader}`;
+      const sseUrl = `${origin}/api/mcp/sse`;
+
+      const configs = {
+        opencode: {
+          "$schema": "https://opencode.ai/config.json",
+          "mcp": {
+            "agent-canvas": {
+              "type": "local",
+              "command": [nodePath, serverPath],
+              "enabled": true
+            }
+          }
+        },
+        claudecode_cli: `claude mcp add agent-canvas --command="${nodePath}" --args="${serverPath}"`,
+        claudecode_json: {
+          "mcpServers": {
+            "agent-canvas": {
+              "command": nodePath,
+              "args": [serverPath]
+            }
+          }
+        },
+        claude: {
+          "mcpServers": {
+            "agent-canvas": {
+              "command": nodePath,
+              "args": [serverPath]
+            }
+          }
+        },
+        cursor: {
+          "mcpServers": {
+            "agent-canvas": {
+              "command": nodePath,
+              "args": [serverPath]
+            }
+          }
+        },
+        antigravity: {
+          "mcpServers": {
+            "agent-canvas": {
+              "command": nodePath,
+              "args": [serverPath]
+            },
+            "agent-canvas-remote": {
+              "serverUrl": sseUrl
+            }
+          }
+        },
+        cline: {
+          "mcpServers": {
+            "agent-canvas": {
+              "command": nodePath,
+              "args": [serverPath]
+            }
+          }
+        },
+        sse_client: {
+          "mcpServers": {
+            "agent-canvas-remote": {
+              "url": sseUrl,
+              "type": "sse"
+            }
+          }
+        }
+      };
+
+      return sendJson(res, 200, {
+        success: true,
+        serverPath,
+        nodePath,
+        cwd: process.cwd(),
+        port: PORT,
+        origin,
+        sseUrl,
+        configs
+      });
+    }
+
     // GET /api/mcp/sse (Model Context Protocol SSE Transport)
     if (pathname === '/api/mcp/sse' && method === 'GET') {
       const sessionId = `mcp-ses-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;

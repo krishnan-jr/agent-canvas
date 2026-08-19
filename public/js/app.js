@@ -293,6 +293,38 @@ class App {
         }
       });
     });
+
+    // Dynamically resolve local machine paths from backend
+    this.loadMcpConfig();
+  }
+
+  async loadMcpConfig() {
+    try {
+      const res = await fetch('/api/mcp/config');
+      const data = await res.json();
+      if (!data.success || !data.configs) return;
+
+      const setSnippet = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      };
+
+      setSnippet('mcp-snippet-opencode', JSON.stringify(data.configs.opencode, null, 2));
+      setSnippet('mcp-snippet-claudecode-cli', data.configs.claudecode_cli);
+      setSnippet('mcp-snippet-claudecode-json', JSON.stringify(data.configs.claudecode_json, null, 2));
+      setSnippet('mcp-snippet-claude', JSON.stringify(data.configs.claude, null, 2));
+      setSnippet('mcp-snippet-cursor', JSON.stringify(data.configs.cursor, null, 2));
+      setSnippet('mcp-snippet-antigravity', JSON.stringify(data.configs.antigravity, null, 2));
+      setSnippet('mcp-snippet-cline', JSON.stringify(data.configs.cline, null, 2));
+
+      const sseUrlEl = document.getElementById('mcp-sse-url');
+      if (sseUrlEl && data.sseUrl) sseUrlEl.textContent = data.sseUrl;
+
+      const msgUrlEl = document.getElementById('mcp-msg-url');
+      if (msgUrlEl && data.origin) msgUrlEl.textContent = `${data.origin}/api/mcp/message`;
+    } catch (err) {
+      console.warn('Could not load dynamic MCP config:', err);
+    }
   }
 
   initGraphDiagnostics() {

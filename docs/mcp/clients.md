@@ -2,6 +2,9 @@
 
 Connect your favorite AI coding assistant directly to **Agent Canvas** using the configurations below.
 
+> [!TIP]
+> **Dynamic Path Resolution**: When running Agent Canvas, click **MCP Server (22 Tools)** in the top navigation **•••** menu to view and copy pre-filled configurations with the exact absolute path dynamically resolved for your current machine.
+
 ---
 
 ## 1. Claude Desktop
@@ -15,7 +18,7 @@ Add Agent Canvas to your `claude_desktop_config.json`:
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["/absolute/path/to/agent-canvas/src/mcpServer.js"]
     }
   }
 }
@@ -32,7 +35,7 @@ Add Agent Canvas to `.cursor/mcp.json` (project-level or global `~/.cursor/mcp.j
   "mcp": {
     "agent-canvas": {
       "type": "local",
-      "command": ["node", "/Users/maeve/Developer/agent-code/src/mcpServer.js"],
+      "command": ["node", "/absolute/path/to/agent-canvas/src/mcpServer.js"],
       "enabled": true
     }
   }
@@ -51,7 +54,7 @@ Add Agent Canvas to `opencode.json` (project root) or `~/.config/opencode/openco
   "mcp": {
     "agent-canvas": {
       "type": "local",
-      "command": ["node", "/Users/maeve/Developer/agent-code/src/mcpServer.js"],
+      "command": ["node", "/absolute/path/to/agent-canvas/src/mcpServer.js"],
       "enabled": true
     }
   }
@@ -65,7 +68,7 @@ Add Agent Canvas to `opencode.json` (project root) or `~/.config/opencode/openco
 Register the MCP server via the Claude Code CLI:
 
 ```bash
-claude mcp add agent-canvas --command="node" --args="/Users/maeve/Developer/agent-code/src/mcpServer.js"
+claude mcp add agent-canvas --command="node" --args="/absolute/path/to/agent-canvas/src/mcpServer.js"
 ```
 
 ---
@@ -79,7 +82,7 @@ Add Agent Canvas to your Antigravity workspace MCP configuration:
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+      "args": ["/absolute/path/to/agent-canvas/src/mcpServer.js"]
     }
   }
 }
