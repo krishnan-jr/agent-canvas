@@ -7,9 +7,22 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "mcp": "node src/mcpServer.js"
+    "mcp": "node src/mcpServer.js",
+    "docs:dev": "vitepress dev docs --port 5173",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs --port 5173"
   },
-  "keywords": ["agent-canvas", "multi-agent", "orchestration", "markdown", "sqlite", "mcp"],
+  "keywords": [
+    "agent-canvas",
+    "multi-agent",
+    "orchestration",
+    "markdown",
+    "sqlite",
+    "mcp"
+  ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
 }
