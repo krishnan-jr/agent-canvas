@@ -21,7 +21,13 @@ git clone https://github.com/krishnan-jr/agent-canvas.git
 cd agent-canvas
 ```
 
-### 2. Launch the Application
+### 2. Configure Environment (Optional)
+
+```bash
+cp .env.example .env
+```
+
+### 3. Launch the Application
 
 ```bash
 # Start server
@@ -31,7 +37,7 @@ npm start
 npm run dev
 ```
 
-### 3. Open the Canvas
+### 4. Open the Canvas
 
 Navigate to `http://localhost:3000` in your web browser.
 

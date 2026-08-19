@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { getAllProjects, getProjectById, getNodesByProject, getOutgoingEdgesForNode, getNodeById } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const WORKSPACE_DIR = path.join(__dirname, '..', 'workspace');
+export const WORKSPACE_DIR = process.env.WORKSPACE_DIR || path.join(__dirname, '..', 'workspace');
 
 if (!fs.existsSync(WORKSPACE_DIR)) {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });

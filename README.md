@@ -114,6 +114,9 @@ Verifies factual consistency, policy compliance, and test suite verification bef
 git clone https://github.com/krishnan-jr/agent-canvas.git
 cd agent-canvas
 
+# Configure environment (optional)
+cp .env.example .env
+
 # Start application server
 npm start
 ```
