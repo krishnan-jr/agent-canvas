@@ -34,6 +34,70 @@ export class OrchestrationRunner {
     this.currentStreamingTextElem = null;
 
     this.bindDrawerEvents();
+    this.initResizer();
+  }
+
+  initResizer() {
+    const resizer = document.getElementById('drawer-resizer');
+    if (!resizer) return;
+
+    let startY = 0;
+    let startHeight = 0;
+    let isDragging = false;
+
+    const savedHeight = localStorage.getItem('agent_canvas_drawer_height');
+    if (savedHeight) {
+      const parsed = parseInt(savedHeight, 10);
+      if (parsed >= 160 && parsed <= window.innerHeight - 80) {
+        this.drawer.style.height = `${parsed}px`;
+      }
+    }
+
+    const onMouseDown = (e) => {
+      isDragging = true;
+      startY = e.clientY;
+      startHeight = this.drawer.getBoundingClientRect().height;
+      this.drawer.classList.add('is-resizing');
+      resizer.classList.add('dragging');
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+
+      window.addEventListener('mousemove', onMouseMove, { passive: true });
+      window.addEventListener('mouseup', onMouseUp);
+    };
+
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      const deltaY = startY - e.clientY;
+      const minHeight = 160;
+      const maxHeight = window.innerHeight - 80;
+      const newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+      this.drawer.style.height = `${newHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      this.drawer.classList.remove('is-resizing');
+      resizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      const finalHeight = this.drawer.getBoundingClientRect().height;
+      localStorage.setItem('agent_canvas_drawer_height', finalHeight);
+    };
+
+    resizer.addEventListener('mousedown', onMouseDown);
+
+    // Double-click toggle between standard and tall height
+    resizer.addEventListener('dblclick', () => {
+      const currentHeight = this.drawer.getBoundingClientRect().height;
+      const targetHeight = currentHeight > 450 ? 380 : 600;
+      this.drawer.style.height = `${targetHeight}px`;
+      localStorage.setItem('agent_canvas_drawer_height', targetHeight);
+    });
   }
 
   bindDrawerEvents() {

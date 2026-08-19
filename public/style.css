@@ -943,7 +943,8 @@ body, html {
   left: 0;
   right: 0;
   height: 380px;
-  max-height: 60vh;
+  min-height: 160px;
+  max-height: 90vh;
   background-color: rgba(20, 20, 26, 0.96);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-subtle);
@@ -954,14 +955,50 @@ body, html {
   transition: transform 0.2s ease, height 0.2s ease;
 }
 
+.execution-drawer.is-resizing {
+  transition: none !important;
+  user-select: none;
+}
+
 .execution-drawer.expanded {
-  height: 560px;
-  max-height: 85vh;
+  height: 600px;
+  max-height: 88vh;
 }
 
 .execution-drawer.hidden {
   transform: translateY(100%);
   pointer-events: none;
+}
+
+/* Drag-to-Resize Handle Bar */
+.drawer-resizer-handle {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 9px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.drawer-resizer-handle:hover .resizer-pill-grip,
+.drawer-resizer-handle.dragging .resizer-pill-grip {
+  background-color: #38bdf8;
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+  transform: scaleY(1.5);
+}
+
+.resizer-pill-grip {
+  width: 48px;
+  height: 3px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.22);
+  transition: all 0.15s ease;
 }
 
 .drawer-header {
@@ -1009,12 +1046,52 @@ body, html {
 .drawer-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 16px;
   font-family: var(--font-mono);
   font-size: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Thin Obsidian scrollbars */
+.drawer-body::-webkit-scrollbar,
+.trace-steps-sidebar::-webkit-scrollbar,
+.trace-detail-pane::-webkit-scrollbar,
+.trace-code-box::-webkit-scrollbar,
+.telemetry-table-container::-webkit-scrollbar,
+.telemetry-dashboard::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.drawer-body::-webkit-scrollbar-track,
+.trace-steps-sidebar::-webkit-scrollbar-track,
+.trace-detail-pane::-webkit-scrollbar-track,
+.trace-code-box::-webkit-scrollbar-track,
+.telemetry-table-container::-webkit-scrollbar-track,
+.telemetry-dashboard::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.drawer-body::-webkit-scrollbar-thumb,
+.trace-steps-sidebar::-webkit-scrollbar-thumb,
+.trace-detail-pane::-webkit-scrollbar-thumb,
+.trace-code-box::-webkit-scrollbar-thumb,
+.telemetry-table-container::-webkit-scrollbar-thumb,
+.telemetry-dashboard::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.drawer-body::-webkit-scrollbar-thumb:hover,
+.trace-steps-sidebar::-webkit-scrollbar-thumb:hover,
+.trace-detail-pane::-webkit-scrollbar-thumb:hover,
+.trace-code-box::-webkit-scrollbar-thumb:hover,
+.telemetry-table-container::-webkit-scrollbar-thumb:hover,
+.telemetry-dashboard::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(56, 189, 248, 0.4);
 }
 
 .log-entry {
