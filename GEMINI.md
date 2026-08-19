@@ -92,3 +92,9 @@ The platform provides multi-harness transpilation, compiling universal markdown 
 - Non-blocking background hit-testing: Clicking anywhere on empty canvas space (up to 1px from block borders) enables smooth drag-to-pan.
 - Navigation shortcuts: Middle-click or `Space + Left Click` for universal canvas panning; scroll wheel for proportional zoom around mouse coordinates.
 - Interactive bezier connection routing with dynamic pass/fail decision pills and draggable port terminals (`top`, `bottom`, `left`, `right`).
+
+### Documentation System Standards (VitePress)
+- Comprehensive local documentation site built with VitePress located in `./docs/`.
+- Served directly by the main application server on the same port at `/docs/` (`http://localhost:3000/docs/`).
+- Strictly enforce the **No Emojis Policy** across all documentation markdown files, navigation headers, sidebars, badges, and callout boxes.
+- Matched dark theme palette: Canvas Background (`#141416`), Card Panels (`#1c1c22`), Subtle Borders (`#2d2d35`), Sky Blue Accent (`#38bdf8`), and `JetBrains Mono` for code blocks.

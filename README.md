@@ -114,11 +114,33 @@ Verifies factual consistency, policy compliance, and test suite verification bef
 git clone https://github.com/your-org/agent-canvas.git
 cd agent-canvas
 
-# Start server
+# Start application server
 npm start
 ```
 
 Open your browser at `http://localhost:3000`.
+
+---
+
+## Local Documentation Site (VitePress)
+
+Agent Canvas includes a dedicated, offline-capable VitePress documentation site with local search and detailed guides:
+
+- **Access directly in browser**: `http://localhost:3000/docs/` (served seamlessly by the main application server on port 3000)
+- **In-App Navigation**: Click the **•••** overflow menu in the top bar and select **Documentation (/docs)**.
+
+### Documentation Commands
+
+```bash
+# Live hot-reloading development server (runs on http://localhost:5173)
+npm run docs:dev
+
+# Compile static documentation bundle into docs/.vitepress/dist
+npm run docs:build
+
+# Preview compiled static documentation build
+npm run docs:preview
+```
 
 ---
 
@@ -158,7 +180,7 @@ To connect external AI agents to your canvas, register the MCP server in your cl
 ```
 .
 ├── src/
-│   ├── server.js              # HTTP server, REST endpoints, and filesystem routing
+│   ├── server.js              # HTTP server, REST endpoints, /docs static router
 │   ├── database.js            # Node:sqlite WAL database schema & queries
 │   ├── mcpServer.js           # Model Context Protocol (MCP) server with 22 tool actions
 │   └── exporters/             # Provider-native transpiler compilers
@@ -180,8 +202,16 @@ To connect external AI agents to your canvas, register the MCP server in your cl
 │       ├── exportStudio.js    # Transpilation preview & ZIP bundler
 │       ├── dialog.js          # In-DOM dialogs & directory browser
 │       └── skillsManager.js   # Skills library catalog & linker
+├── docs/                      # VitePress documentation site
+│   ├── .vitepress/            # VitePress config & Obsidian dark theme
+│   ├── guide/                 # Introduction, quickstart, canvas mechanics
+│   ├── schema/                # Universal YAML frontmatter & role specs
+│   ├── exporters/             # Multi-target transpiler guides
+│   ├── skills/                # Modular skills architecture
+│   ├── mcp/                   # MCP server reference & client configs
+│   ├── api/                   # REST endpoints & SQLite schema
+│   └── images/                # High-resolution documentation screenshots
 ├── workspace/                 # On-disk mirrored agent vaults (.md files)
-├── docs/                      # Documentation assets & screenshots
 └── package.json
 ```
 
