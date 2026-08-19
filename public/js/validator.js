@@ -13,13 +13,13 @@ export const UNIVERSAL_ROLES = [
 ];
 
 export const UNIVERSAL_ROLE_DEFINITIONS = [
-  { role: 'orchestrator', color: '#38bdf8', label: 'Orchestrator', desc: 'Master supervisor coordinating workflows, scheduling, and subagent delegation.' },
-  { role: 'assistant', color: '#64748b', label: 'Assistant', desc: 'General conversational agent executing interactive queries and general tasks.' },
-  { role: 'researcher', color: '#818cf8', label: 'Researcher', desc: 'Read-only explorer gathering codebase context, documentation, and web data.' },
-  { role: 'evaluator', color: '#10b981', label: 'Evaluator', desc: 'Quality gatekeeper auditing test coverage, lint checks, and security guardrails.' },
-  { role: 'router', color: '#f59e0b', label: 'Router', desc: 'Decision node evaluating conditions, branching paths, and retry transitions.' },
-  { role: 'coder', color: '#a855f7', label: 'Coder', desc: 'Implementation engineer focused on writing, editing, and refactoring source code.' },
-  { role: 'tool', color: '#71717a', label: 'Tool', desc: 'Specialized deterministic utility agent executing discrete bash scripts or tools.' }
+  { role: 'orchestrator', color: '#38bdf8', label: 'Orchestrator', desc: 'Master supervisor coordinating workflows & subagent delegation' },
+  { role: 'assistant', color: '#64748b', label: 'Assistant', desc: 'General conversational agent executing interactive queries' },
+  { role: 'researcher', color: '#818cf8', label: 'Researcher', desc: 'Read-only explorer gathering codebase context & web data' },
+  { role: 'evaluator', color: '#10b981', label: 'Evaluator', desc: 'Quality gatekeeper auditing test coverage & guardrails' },
+  { role: 'router', color: '#f59e0b', label: 'Router', desc: 'Decision node evaluating conditions & branch transitions' },
+  { role: 'coder', color: '#a855f7', label: 'Coder', desc: 'Implementation engineer writing, editing, & refactoring code' },
+  { role: 'tool', color: '#71717a', label: 'Tool', desc: 'Specialized utility agent executing discrete bash scripts or tools' }
 ];
 
 export const STANDARD_TOOLS = [
@@ -274,9 +274,7 @@ export function validateAgentSchema(markdownText = '') {
     };
   }
 
-  if (!frontmatter.role) {
-    warnings.push({ field: 'role', message: `Missing 'role'. Recommended: ${UNIVERSAL_ROLES.join(', ')}` });
-  } else if (!UNIVERSAL_ROLES.includes(String(frontmatter.role).toLowerCase())) {
+  if (frontmatter.role && !UNIVERSAL_ROLES.includes(String(frontmatter.role).toLowerCase())) {
     warnings.push({ field: 'role', message: `Unknown role '${frontmatter.role}'. Standard roles: ${UNIVERSAL_ROLES.join(', ')}` });
   }
 

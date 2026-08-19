@@ -3483,49 +3483,51 @@ body, html {
 .role-dot.role-router { background-color: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
 .role-dot.role-coder { background-color: #a855f7; box-shadow: 0 0 6px #a855f7; }
 .role-dot.role-tool { background-color: #71717a; box-shadow: 0 0 6px #71717a; }
+.role-dot.role-none { background-color: #52525e; box-shadow: none; }
 
 .editor-role-dropdown {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  width: 320px;
-  max-height: 280px;
-  background-color: #1a1a24;
-  border: 1px solid #38384d;
+  width: 350px;
+  max-height: 320px;
+  background-color: #181822;
+  border: 1px solid #333346;
   border-radius: var(--radius-md);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75);
   z-index: 500;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   animation: dropdownFadeIn 0.12s ease;
 }
 
 .role-dropdown-header {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 10.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  background-color: #13131b;
+  background-color: #121218;
 }
 
 .role-dropdown-list {
-  padding: 6px;
+  padding: 5px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
+  max-height: 280px;
 }
 
 .role-dropdown-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.12s ease;
@@ -3538,19 +3540,27 @@ body, html {
 }
 
 .role-dropdown-item.active {
-  background-color: rgba(56, 189, 248, 0.1);
+  background-color: rgba(56, 189, 248, 0.12);
   border-color: rgba(56, 189, 248, 0.35);
 }
 
 .role-item-badge {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
   flex-shrink: 0;
   border: 1px solid;
+  min-width: 82px;
+  text-align: center;
+}
+
+.role-item-badge.role-none {
+  color: #94a3b8;
+  border-color: #475569;
+  background-color: rgba(148, 163, 184, 0.08);
 }
 
 .role-item-info {
@@ -3558,6 +3568,7 @@ body, html {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  flex: 1;
 }
 
 .role-item-title {
@@ -3569,69 +3580,10 @@ body, html {
 .role-item-desc {
   font-size: 10.5px;
   color: var(--text-muted);
-  line-height: 1.35;
-}
-
-/* Quick Role Hint Strip */
-.editor-role-hint-strip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  background-color: #121217;
-  border-bottom: 1px solid #232330;
-  overflow-x: auto;
-}
-
-.role-hint-title {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  line-height: 1.25;
   white-space: nowrap;
-}
-
-.role-hint-pills {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-
-.role-hint-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  background-color: #191922;
-  border: 1px solid #2e2e3e;
-  color: #d1d5db;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.12s ease;
-}
-
-.role-hint-pill:hover {
-  background-color: #242432;
-  border-color: currentColor;
-  transform: translateY(-1px);
-}
-
-.role-hint-pill.active {
-  font-weight: 700;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-}
-
-.role-hint-pill-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tooltip-roles-grid {

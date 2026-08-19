@@ -403,16 +403,25 @@ class App {
       document.body.appendChild(tooltipElem);
     }
 
-    // Role selector & hint pills setup
+    // Role selector dropdown setup
     const rolePickerBtn = document.getElementById('btn-toggle-editor-role-picker');
     const roleDropdown = document.getElementById('editor-role-dropdown');
     const roleDropdownList = document.getElementById('editor-role-dropdown-list');
     const rolePickerLabel = document.getElementById('editor-role-picker-label');
     const roleDot = document.getElementById('editor-role-dot');
-    const roleHintPills = document.getElementById('editor-role-hint-pills');
 
     if (roleDropdownList) {
-      roleDropdownList.innerHTML = UNIVERSAL_ROLE_DEFINITIONS.map(r => `
+      const itemsHtml = [
+        `
+        <div class="role-dropdown-item" data-role="">
+          <span class="role-item-badge role-none">none</span>
+          <div class="role-item-info">
+            <span class="role-item-title">No Role (Optional)</span>
+            <span class="role-item-desc">General standalone agent without specific role constraint</span>
+          </div>
+        </div>
+        `,
+        ...UNIVERSAL_ROLE_DEFINITIONS.map(r => `
         <div class="role-dropdown-item" data-role="${r.role}">
           <span class="role-item-badge" style="color: ${r.color}; border-color: ${r.color}66; background-color: ${r.color}15;">${r.role}</span>
           <div class="role-item-info">
@@ -420,30 +429,16 @@ class App {
             <span class="role-item-desc">${r.desc}</span>
           </div>
         </div>
-      `).join('');
+        `)
+      ].join('');
+
+      roleDropdownList.innerHTML = itemsHtml;
 
       roleDropdownList.querySelectorAll('.role-dropdown-item').forEach(item => {
         item.addEventListener('click', () => {
           const role = item.dataset.role;
           this.setAgentRole(textarea, role);
           if (roleDropdown) roleDropdown.classList.add('hidden');
-          updateValidation();
-        });
-      });
-    }
-
-    if (roleHintPills) {
-      roleHintPills.innerHTML = UNIVERSAL_ROLE_DEFINITIONS.map(r => `
-        <button type="button" class="role-hint-pill" data-role="${r.role}" title="${escapeHtml(r.desc)}">
-          <span class="role-hint-pill-dot" style="background-color: ${r.color};"></span>
-          <span>${r.role}</span>
-        </button>
-      `).join('');
-
-      roleHintPills.querySelectorAll('.role-hint-pill').forEach(pill => {
-        pill.addEventListener('click', () => {
-          const role = pill.dataset.role;
-          this.setAgentRole(textarea, role);
           updateValidation();
         });
       });
@@ -488,23 +483,21 @@ class App {
         banner.classList.add('hidden');
       }
 
-      // Sync role UI controls (picker label, dot, active pills)
-      const currentRole = frontmatter.role ? String(frontmatter.role).toLowerCase() : 'assistant';
+      // Sync role UI controls (picker label, dot, active dropdown item)
+      const currentRole = frontmatter.role ? String(frontmatter.role).toLowerCase() : '';
       if (rolePickerLabel) {
-        rolePickerLabel.textContent = `Role: ${currentRole}`;
+        rolePickerLabel.textContent = currentRole ? `Role: ${currentRole}` : 'Role: None';
       }
       if (roleDot) {
-        roleDot.className = `role-dot role-${currentRole}`;
+        roleDot.className = currentRole ? `role-dot role-${currentRole}` : 'role-dot role-none';
       }
-      if (roleHintPills) {
-        roleHintPills.querySelectorAll('.role-hint-pill').forEach(p => {
-          if (p.dataset.role === currentRole) {
-            p.classList.add('active');
-            const def = UNIVERSAL_ROLE_DEFINITIONS.find(r => r.role === currentRole);
-            if (def) p.style.borderColor = def.color;
+      if (roleDropdownList) {
+        roleDropdownList.querySelectorAll('.role-dropdown-item').forEach(item => {
+          const itemRole = item.dataset.role;
+          if (itemRole === currentRole) {
+            item.classList.add('active');
           } else {
-            p.classList.remove('active');
-            p.style.borderColor = '';
+            item.classList.remove('active');
           }
         });
       }
@@ -718,7 +711,8 @@ class App {
 
   setAgentRole(textarea, roleName) {
     let content = textarea.value;
-    const roleLine = `role: ${roleName}`;
+    const isClearing = !roleName || roleName === 'none';
+    const roleLine = isClearing ? '' : `role: ${roleName}`;
 
     if (content.startsWith('---')) {
       const secondDash = content.indexOf('---', 3);
@@ -730,25 +724,29 @@ class App {
         for (const l of lines) {
           if (l.trim().startsWith('role:')) {
             found = true;
-            newLines.push(roleLine);
+            if (roleLine) newLines.push(roleLine);
           } else {
             newLines.push(l);
           }
         }
-        if (!found) {
+        if (!found && roleLine) {
           newLines.unshift(roleLine);
         }
         const rawBody = content.slice(secondDash + 3);
         const bodyContent = rawBody.replace(/^[\r\n]+/, '');
         content = bodyContent ? `---\n${newLines.join('\n')}\n---\n\n${bodyContent}` : `---\n${newLines.join('\n')}\n---`;
       }
-    } else {
+    } else if (roleLine) {
       const bodyContent = content.replace(/^[\r\n]+/, '');
       content = bodyContent ? `---\n${roleLine}\n---\n\n${bodyContent}` : `---\n${roleLine}\n---`;
     }
 
     textarea.value = content;
-    dialog.toast(`Updated agent role to '${roleName}'`, 'info');
+    if (isClearing) {
+      dialog.toast('Cleared agent role (Optional)', 'info');
+    } else {
+      dialog.toast(`Updated agent role to '${roleName}'`, 'info');
+    }
   }
 
   updateAgentSkillsFrontmatter(textarea, selectedSkills = []) {
