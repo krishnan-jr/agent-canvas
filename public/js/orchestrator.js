@@ -44,6 +44,15 @@ export class OrchestrationRunner {
       });
     }
 
+    const expandBtn = document.getElementById('btn-toggle-expand-drawer');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        this.drawer.classList.toggle('expanded');
+        const isExp = this.drawer.classList.contains('expanded');
+        expandBtn.setAttribute('title', isExp ? 'Restore Size' : 'Maximize Drawer');
+      });
+    }
+
     // Tab switching
     const tabs = this.drawer.querySelectorAll('.drawer-tab');
     tabs.forEach(tab => {
