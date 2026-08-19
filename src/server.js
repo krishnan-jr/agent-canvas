@@ -491,22 +491,27 @@ Detailed runbook and instructions for this skill.
     const zipMatch = pathname.match(/^\/api\/projects\/([^/]+)\/export\/zip$/);
     if (zipMatch && method === 'GET') {
       const projectId = decodeURIComponent(zipMatch[1]);
-      const target = url.searchParams.get('target') || 'claude-code';
+      const target = parsedUrl.searchParams.get('target') || 'claude-code';
       const project = getProjectById(projectId);
       const nodes = getNodesByProject(projectId);
       const edges = getEdgesByProject(projectId);
       const skills = getSkillsByProject(projectId);
 
-      const zipBuffer = exportToZip(target, project, nodes, edges, skills);
-      const slug = project ? (project.slug || project.id) : 'project';
-      const filename = `${slug}-${target}-export.zip`;
+      try {
+        const zipBuffer = exportToZip(target, project, nodes, edges, skills);
+        const slug = project ? (project.slug || project.id) : 'project';
+        const filename = `${slug}-${target}-export.zip`;
 
-      res.writeHead(200, {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': zipBuffer.length
-      });
-      return res.end(zipBuffer);
+        res.writeHead(200, {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Length': zipBuffer.length
+        });
+        return res.end(zipBuffer);
+      } catch (err) {
+        console.error('Failed to generate ZIP export:', err);
+        return sendJson(res, 500, { error: 'Failed to generate ZIP export: ' + err.message });
+      }
     }
 
     // GET /api/filesystem/directories (Directory browser for disk export and workspace navigation)
