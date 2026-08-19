@@ -13,13 +13,55 @@ export const UNIVERSAL_ROLES = [
 ];
 
 export const UNIVERSAL_ROLE_DEFINITIONS = [
-  { role: 'orchestrator', color: '#38bdf8', label: 'Orchestrator', desc: 'Master supervisor coordinating workflows & subagent delegation' },
-  { role: 'assistant', color: '#64748b', label: 'Assistant', desc: 'General conversational agent executing interactive queries' },
-  { role: 'researcher', color: '#818cf8', label: 'Researcher', desc: 'Read-only explorer gathering codebase context & web data' },
-  { role: 'evaluator', color: '#10b981', label: 'Evaluator', desc: 'Quality gatekeeper auditing test coverage & guardrails' },
-  { role: 'router', color: '#f59e0b', label: 'Router', desc: 'Decision node evaluating conditions & branch transitions' },
-  { role: 'coder', color: '#a855f7', label: 'Coder', desc: 'Implementation engineer writing, editing, & refactoring code' },
-  { role: 'tool', color: '#71717a', label: 'Tool', desc: 'Specialized utility agent executing discrete bash scripts or tools' }
+  {
+    role: 'orchestrator',
+    color: '#38bdf8',
+    label: 'Orchestrator',
+    shortDesc: 'Master supervisor coordinating workflows & subagents',
+    desc: 'Master supervisor coordinating workflows, scheduling task handoffs, and managing autonomous subagent delegation across harnesses.'
+  },
+  {
+    role: 'assistant',
+    color: '#64748b',
+    label: 'Assistant',
+    shortDesc: 'General conversational agent executing interactive queries',
+    desc: 'General conversational agent executing interactive queries, explaining concepts, formulating plans, and handling general prompts.'
+  },
+  {
+    role: 'researcher',
+    color: '#818cf8',
+    label: 'Researcher',
+    shortDesc: 'Read-only explorer gathering codebase context & web data',
+    desc: 'Read-only explorer gathering codebase context, documentation, external web search data, and architecture knowledge.'
+  },
+  {
+    role: 'evaluator',
+    color: '#10b981',
+    label: 'Evaluator',
+    shortDesc: 'Quality gatekeeper auditing test coverage & guardrails',
+    desc: 'Quality gatekeeper verifying test coverage, lint checks, policy compliance, output validation, and safety guardrails.'
+  },
+  {
+    role: 'router',
+    color: '#f59e0b',
+    label: 'Router',
+    shortDesc: 'Decision node evaluating conditions & branch transitions',
+    desc: 'Decision node evaluating conditional expressions, branching workflow paths, validating pass/fail states, and managing retry budgets.'
+  },
+  {
+    role: 'coder',
+    color: '#a855f7',
+    label: 'Coder',
+    shortDesc: 'Implementation engineer writing, editing, & refactoring code',
+    desc: 'Implementation engineer focused on writing, editing, refactoring, fixing bugs, and implementing algorithmic changes.'
+  },
+  {
+    role: 'tool',
+    color: '#71717a',
+    label: 'Tool',
+    shortDesc: 'Deterministic utility agent executing discrete bash scripts or tools',
+    desc: 'Specialized deterministic utility agent executing discrete bash commands, database queries, build tools, or single API calls.'
+  }
 ];
 
 export const STANDARD_TOOLS = [

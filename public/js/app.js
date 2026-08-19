@@ -411,9 +411,11 @@ class App {
     const roleDot = document.getElementById('editor-role-dot');
 
     if (roleDropdownList) {
+      const footerDesc = document.getElementById('role-dropdown-footer-desc');
+
       const itemsHtml = [
         `
-        <div class="role-dropdown-item" data-role="">
+        <div class="role-dropdown-item" data-role="" title="General standalone agent without specific role constraint">
           <span class="role-item-badge role-none">none</span>
           <div class="role-item-info">
             <span class="role-item-title">No Role (Optional)</span>
@@ -422,11 +424,11 @@ class App {
         </div>
         `,
         ...UNIVERSAL_ROLE_DEFINITIONS.map(r => `
-        <div class="role-dropdown-item" data-role="${r.role}">
+        <div class="role-dropdown-item" data-role="${r.role}" title="${escapeHtml(r.desc)}">
           <span class="role-item-badge" style="color: ${r.color}; border-color: ${r.color}66; background-color: ${r.color}15;">${r.role}</span>
           <div class="role-item-info">
             <span class="role-item-title">${r.label}</span>
-            <span class="role-item-desc">${r.desc}</span>
+            <span class="role-item-desc">${escapeHtml(r.shortDesc || r.desc)}</span>
           </div>
         </div>
         `)
@@ -434,12 +436,41 @@ class App {
 
       roleDropdownList.innerHTML = itemsHtml;
 
+      const updateFooterToActive = () => {
+        if (!footerDesc) return;
+        const val = textarea.value;
+        const { frontmatter } = parseAgentYaml(val);
+        const curRole = frontmatter.role ? String(frontmatter.role).toLowerCase() : '';
+        if (curRole) {
+          const def = UNIVERSAL_ROLE_DEFINITIONS.find(r => r.role === curRole);
+          footerDesc.textContent = def ? `${def.label}: ${def.desc}` : `Role: ${curRole}`;
+        } else {
+          footerDesc.textContent = 'No specific role set. Agent executes as a general standalone component.';
+        }
+      };
+
       roleDropdownList.querySelectorAll('.role-dropdown-item').forEach(item => {
         item.addEventListener('click', () => {
           const role = item.dataset.role;
           this.setAgentRole(textarea, role);
           if (roleDropdown) roleDropdown.classList.add('hidden');
           updateValidation();
+        });
+
+        item.addEventListener('mouseenter', () => {
+          const role = item.dataset.role;
+          if (footerDesc) {
+            if (role) {
+              const def = UNIVERSAL_ROLE_DEFINITIONS.find(r => r.role === role);
+              footerDesc.textContent = def ? `${def.label}: ${def.desc}` : `Role: ${role}`;
+            } else {
+              footerDesc.textContent = 'None: General standalone agent without specific role or orchestration constraints.';
+            }
+          }
+        });
+
+        item.addEventListener('mouseleave', () => {
+          updateFooterToActive();
         });
       });
     }
