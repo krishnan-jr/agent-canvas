@@ -21,6 +21,25 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     assistant: '#64748b'
   };
 
+  /**
+   * Determine OpenCode mode (primary | subagent | all) using:
+   * 1. Explicit user frontmatter override (`mode: primary | subagent | all`)
+   * 2. Role classification (`orchestrator` -> `primary`, workers -> `subagent`)
+   * 3. Graph topology (Root entry nodes with in-degree 0 -> `primary`, downstream -> `subagent`)
+   */
+  function resolveAgentMode(frontmatter, node) {
+    if (frontmatter.mode && ['primary', 'subagent', 'all'].includes(frontmatter.mode)) {
+      return frontmatter.mode;
+    }
+    const role = (frontmatter.role || 'assistant').toLowerCase();
+    if (role === 'orchestrator') return 'primary';
+    if (['evaluator', 'researcher', 'coder', 'router', 'tool'].includes(role)) return 'subagent';
+
+    const hasIncoming = edges.some(e => e.target_id === node.id);
+    if (!hasIncoming && edges.length > 0) return 'primary';
+    return 'subagent';
+  }
+
   // 1. Generate AGENTS.md with OpenCode lazy-loading @references and Mermaid DAG
   let agentsMd = `# ${projectName} - OpenCode Multi-Agent Protocol\n\n`;
   agentsMd += `This project defines an autonomous multi-agent system configured for OpenCode Interpreter.\n\n`;
@@ -33,7 +52,7 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     const { frontmatter } = parseAgentYaml(node.content || '');
     const baseName = (node.filename || node.title || 'agent').replace(/\.md$/, '');
     const role = (frontmatter.role || 'assistant').toLowerCase();
-    const mode = role === 'orchestrator' ? 'primary' : 'subagent';
+    const mode = resolveAgentMode(frontmatter, node);
     const tools = (frontmatter.tools || []).join(', ') || 'standard';
 
     agentsMd += `### \`${baseName}\` (@.opencode/agents/${baseName}.md)\n`;
@@ -111,7 +130,7 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     const baseName = (node.filename || node.title || 'agent').replace(/\.md$/, '');
     const agentPath = `.opencode/agents/${baseName}.md`;
     const role = (frontmatter.role || 'assistant').toLowerCase();
-    const mode = role === 'orchestrator' ? 'primary' : 'subagent';
+    const mode = resolveAgentMode(frontmatter, node);
     const tools = Array.isArray(frontmatter.tools) ? frontmatter.tools : [];
 
     // Find outgoing target agents for permission.task gating
