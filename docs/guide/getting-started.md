@@ -17,7 +17,7 @@ Get up and running with **Agent Canvas** in under two minutes.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/agent-canvas.git
+git clone https://github.com/krishnan-jr/agent-canvas.git
 cd agent-canvas
 ```
 

@@ -111,7 +111,7 @@ Verifies factual consistency, policy compliance, and test suite verification bef
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/agent-canvas.git
+git clone https://github.com/krishnan-jr/agent-canvas.git
 cd agent-canvas
 
 # Start application server

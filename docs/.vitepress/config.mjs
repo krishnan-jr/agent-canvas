@@ -34,7 +34,7 @@ export default defineConfig({
       { text: 'Skills', link: '/skills/skills-system' },
       { text: 'MCP Server', link: '/mcp/overview' },
       { text: 'API Reference', link: '/api/rest-endpoints' },
-      { text: 'GitHub', link: 'https://github.com/your-org/agent-canvas' }
+      { text: 'GitHub', link: 'https://github.com/krishnan-jr/agent-canvas' }
     ],
 
     sidebar: {

@@ -29,8 +29,11 @@ data/
 *.db-shm
 *.db-wal
 
-# Generated export folders
+# Temporary
+scratch/
 workspace/**/export_*/
+workspace/custom_export_test/
+workspace/my_custom_export_dir/
 
 # IDE
 .idea/

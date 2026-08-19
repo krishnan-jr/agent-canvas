@@ -1,6 +1,6 @@
 /**
  * Standalone Autonomous Agent Workflow Execution Engine
- * Project: test
+ * Project: Autonomous Multi-Agent Suite
  * Generated: 2026-08-19T17:17:11.503Z
  */
 
@@ -36,7 +36,7 @@ export class AgentWorkflowRunner {
   }
 
   async run(initialContext = {}) {
-    console.log('[START] Launching workflow for project: test');
+    console.log('[START] Launching workflow for project: Autonomous Multi-Agent Suite');
     
     // Topologically traverse agents based on routes
     let currentAgent = 'Welcome.md';
