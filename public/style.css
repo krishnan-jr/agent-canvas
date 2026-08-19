@@ -1239,7 +1239,7 @@ body, html {
 }
 
 .modal-header {
-  padding: 12px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -1249,8 +1249,16 @@ body, html {
 
 .modal-title-group {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.modal-filename-row {
+  display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .modal-filename-input {
@@ -1258,9 +1266,9 @@ body, html {
   border: 1px solid transparent;
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
-  padding: 4px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 

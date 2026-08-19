@@ -345,7 +345,7 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
     }
   });
 
-  // 2. Check isolated nodes & in/out degree
+  // 2. Map incoming & outgoing edge degree
   const incoming = {};
   const outgoing = {};
   nodes.forEach(n => {
@@ -356,16 +356,6 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
     if (outgoing[e.source_id]) outgoing[e.source_id].push(e);
     if (incoming[e.target_id]) incoming[e.target_id].push(e);
   });
-
-  if (nodes.length > 1) {
-    nodes.forEach(n => {
-      const inCount = incoming[n.id].length;
-      const outCount = outgoing[n.id].length;
-      if (inCount === 0 && outCount === 0) {
-        addIssue(n.id, 'warning', `Isolated node "${n.filename || n.title}" has no incoming or outgoing workflow connections.`);
-      }
-    });
-  }
 
   // 3. Check individual node frontmatter & route / skill integrity
   const availableSkillNames = (skills || []).map(s => String(s.name || '').trim().toLowerCase());
