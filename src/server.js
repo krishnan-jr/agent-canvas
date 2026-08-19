@@ -42,6 +42,7 @@ import {
 } from './exporters/index.js';
 import { validateAgentSchema, validateGraphTopology } from './validator.js';
 import { executeWorkflowStream, resumeApprovalSession } from './llmRunner.js';
+import { handleMcpMessage } from './mcpServer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -569,6 +570,29 @@ Detailed runbook and instructions for this skill.
       const { runId, action, modifiedPayload } = body;
       const resumed = resumeApprovalSession(runId, action, modifiedPayload);
       return sendJson(res, 200, { success: resumed });
+    }
+
+    // GET /api/mcp/sse (Model Context Protocol SSE Transport)
+    if (pathname === '/api/mcp/sse' && method === 'GET') {
+      const sessionId = `mcp-ses-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.write(`event: endpoint\ndata: /api/mcp/message?sessionId=${sessionId}\n\n`);
+      return;
+    }
+
+    // POST /api/mcp/message or /api/mcp (Model Context Protocol JSON-RPC Handler)
+    if ((pathname === '/api/mcp/message' || pathname === '/api/mcp') && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const mcpResponse = await handleMcpMessage(body);
+      if (!mcpResponse) {
+        return sendJson(res, 204, {});
+      }
+      return sendJson(res, 200, mcpResponse);
     }
 
     // POST /api/orchestrate/simulate (Enhanced with Conditional Decision Loops & Retries)

@@ -214,11 +214,63 @@ class App {
       this.exportStudio.open();
     });
 
+    // MCP Server Connect Modal
+    this.initMcpModal();
+
     // Graph Diagnostics Pill
     this.initGraphDiagnostics();
 
     // Modal Editor UI
     this.initModalEditor();
+  }
+
+  initMcpModal() {
+    const btnMcp = document.getElementById('btn-mcp-server');
+    const modal = document.getElementById('mcp-modal');
+    const closeBtn = document.getElementById('btn-close-mcp-modal');
+
+    if (!btnMcp || !modal) return;
+
+    btnMcp.addEventListener('click', () => {
+      modal.classList.remove('hidden');
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    }
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+
+    // Tab switching
+    const tabBtns = modal.querySelectorAll('.mcp-tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const targetTabId = `mcp-tab-${btn.dataset.mcpTab}`;
+        modal.querySelectorAll('.mcp-tab-content').forEach(content => {
+          content.classList.toggle('hidden', content.id !== targetTabId);
+          content.classList.toggle('active', content.id === targetTabId);
+        });
+      });
+    });
+
+    // Copy buttons
+    modal.querySelectorAll('.btn-copy-mcp').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.copyTarget;
+        const codeElem = document.getElementById(targetId);
+        if (codeElem) {
+          navigator.clipboard.writeText(codeElem.textContent.trim());
+          dialog.toast('MCP configuration copied to clipboard', 'success');
+        }
+      });
+    });
   }
 
   initGraphDiagnostics() {

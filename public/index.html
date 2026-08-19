@@ -90,6 +90,11 @@
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
       </button>
+
+      <button id="btn-mcp-server" class="btn btn-secondary" title="Connect External AI Agents via MCP">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        MCP Server
+      </button>
     </div>
   </header>
 
@@ -320,6 +325,166 @@
         <div class="modal-preview-pane">
           <div class="pane-header">Live Preview & Frontmatter Summary</div>
           <div id="modal-preview-content" class="markdown-body modal-preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Server Connection Modal -->
+  <div id="mcp-modal" class="modal-overlay hidden">
+    <div class="modal-card mcp-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <h2 class="modal-title">Model Context Protocol (MCP) Server</h2>
+          <span class="mcp-status-badge">Active &bull; 22 Tools Available</span>
+        </div>
+        <button id="btn-close-mcp-modal" class="btn-icon" title="Close">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="mcp-modal-body">
+        <div class="mcp-intro-box">
+          Connect external AI agents (Claude Desktop, Cursor, Antigravity, OpenCode, Cline) directly to this canvas. The connecting agent receives full autonomous control to create projects, configure agents, wire routing edges, link skills, run workflow simulations, and export DAGs.
+        </div>
+
+        <div class="mcp-tabs">
+          <button class="mcp-tab-btn active" data-mcp-tab="claude">Claude Desktop</button>
+          <button class="mcp-tab-btn" data-mcp-tab="cursor">Cursor / Cline</button>
+          <button class="mcp-tab-btn" data-mcp-tab="antigravity">Antigravity (AGY)</button>
+          <button class="mcp-tab-btn" data-mcp-tab="sse">HTTP / SSE</button>
+          <button class="mcp-tab-btn" data-mcp-tab="tools">Available Tools (22)</button>
+        </div>
+
+        <!-- Tab 1: Claude Desktop -->
+        <div class="mcp-tab-content active" id="mcp-tab-claude">
+          <div class="mcp-config-guide">
+            Add this configuration to your <code>claude_desktop_config.json</code>:
+          </div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-claude">{
+  "mcpServers": {
+    "agent-canvas": {
+      "command": "node",
+      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+    }
+  }
+}</code></pre>
+          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-claude">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Config
+          </button>
+        </div>
+
+        <!-- Tab 2: Cursor / Cline -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-cursor">
+          <div class="mcp-config-guide">
+            Add to your Cursor MCP settings (<code>.cursor/mcp.json</code>) or Cline extension settings:
+          </div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-cursor">{
+  "mcpServers": {
+    "agent-canvas": {
+      "command": "node",
+      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+    }
+  }
+}</code></pre>
+          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-cursor">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Config
+          </button>
+        </div>
+
+        <!-- Tab 3: Antigravity -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-antigravity">
+          <div class="mcp-config-guide">
+            Add to Antigravity MCP settings (<code>~/.gemini/antigravity/mcp.json</code>):
+          </div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-antigravity">{
+  "mcpServers": {
+    "agent-canvas": {
+      "command": "node",
+      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+    }
+  }
+}</code></pre>
+          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-antigravity">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Config
+          </button>
+        </div>
+
+        <!-- Tab 4: HTTP / SSE -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-sse">
+          <div class="mcp-config-guide">
+            For remote agents connecting over standard HTTP / Server-Sent Events:
+          </div>
+          <div class="mcp-endpoint-row">
+            <span class="endpoint-label">SSE Stream URL:</span>
+            <code class="endpoint-url" id="mcp-sse-url">http://localhost:3000/api/mcp/sse</code>
+          </div>
+          <div class="mcp-endpoint-row">
+            <span class="endpoint-label">Message POST Endpoint:</span>
+            <code class="endpoint-url" id="mcp-msg-url">http://localhost:3000/api/mcp/message</code>
+          </div>
+        </div>
+
+        <!-- Tab 5: Available Tools -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-tools">
+          <div class="mcp-tools-grid">
+            <div class="mcp-tool-category">
+              <span class="category-title">Projects</span>
+              <ul class="mcp-tool-list">
+                <li><code>list_projects</code> - List all canvas workspaces</li>
+                <li><code>create_project</code> - Create new workspace</li>
+                <li><code>get_project</code> - Get project nodes & edges</li>
+                <li><code>delete_project</code> - Delete workspace</li>
+              </ul>
+            </div>
+            <div class="mcp-tool-category">
+              <span class="category-title">Agents & Blocks</span>
+              <ul class="mcp-tool-list">
+                <li><code>list_agents</code> - List all agent blocks</li>
+                <li><code>get_agent</code> - Get full agent details</li>
+                <li><code>create_agent</code> - Create new agent .md block</li>
+                <li><code>update_agent</code> - Modify agent instructions</li>
+                <li><code>delete_agent</code> - Delete agent block</li>
+              </ul>
+            </div>
+            <div class="mcp-tool-category">
+              <span class="category-title">Routing & Edges</span>
+              <ul class="mcp-tool-list">
+                <li><code>create_edge</code> - Wire transition connection</li>
+                <li><code>delete_edge</code> - Remove connection</li>
+                <li><code>auto_layout_graph</code> - Auto-align DAG layers</li>
+              </ul>
+            </div>
+            <div class="mcp-tool-category">
+              <span class="category-title">Skills Catalog</span>
+              <ul class="mcp-tool-list">
+                <li><code>list_skills</code> - List modular skills</li>
+                <li><code>get_skill</code> - Read SKILL.md runbook</li>
+                <li><code>create_skill</code> - Register skill package</li>
+                <li><code>delete_skill</code> - Remove skill package</li>
+              </ul>
+            </div>
+            <div class="mcp-tool-category">
+              <span class="category-title">Workflow Execution</span>
+              <ul class="mcp-tool-list">
+                <li><code>run_workflow</code> - Execute DAG & collect telemetry</li>
+                <li><code>get_workflow_trace</code> - Inspect step traces</li>
+                <li><code>submit_approval_decision</code> - Human gate approval</li>
+              </ul>
+            </div>
+            <div class="mcp-tool-category">
+              <span class="category-title">Diagnostics & Export</span>
+              <ul class="mcp-tool-list">
+                <li><code>lint_graph</code> - Run graph health linter</li>
+                <li><code>export_workflow</code> - Multi-target transpilation</li>
+                <li><code>preview_export</code> - Dry-run export preview</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
