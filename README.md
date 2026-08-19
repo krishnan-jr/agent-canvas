@@ -111,8 +111,8 @@ Verifies factual consistency, policy compliance, and test suite verification bef
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/agent-code.git
-cd agent-code
+git clone https://github.com/your-org/agent-canvas.git
+cd agent-canvas
 
 # Start server
 npm start
@@ -132,7 +132,7 @@ To connect external AI agents to your canvas, register the MCP server in your cl
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
-      "args": ["/absolute/path/to/agent-code/src/mcpServer.js"]
+      "args": ["/absolute/path/to/agent-canvas/src/mcpServer.js"]
     }
   }
 }
@@ -144,7 +144,7 @@ To connect external AI agents to your canvas, register the MCP server in your cl
   "mcp": {
     "agent-canvas": {
       "type": "local",
-      "command": ["node", "/absolute/path/to/agent-code/src/mcpServer.js"],
+      "command": ["node", "/absolute/path/to/agent-canvas/src/mcpServer.js"],
       "enabled": true
     }
   }
