@@ -54,6 +54,30 @@ body, html {
   user-select: none;
 }
 
+/* Allow text selection inside code blocks, editors, modals, and previews */
+pre, code, kbd, samp,
+textarea,
+input,
+.code-editor,
+.modal-body pre,
+.modal-body code,
+.dialog-body pre,
+.dialog-body code,
+.export-code-view,
+.export-code-view pre,
+.export-code-view code,
+.markdown-preview,
+.stream-code,
+.log-entry,
+.log-message,
+.mcp-code-snippet,
+.mcp-code-snippet code,
+.endpoint-url,
+.selectable-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 /* ==========================================================================
    Top Navigation Header
    ========================================================================== */
@@ -4807,6 +4831,15 @@ body, html {
   line-height: 1.55;
   color: #e2e8f0;
   overflow-x: auto;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
+}
+
+.mcp-code-snippet code {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }
 
 .mcp-tab-actions {
@@ -4843,6 +4876,9 @@ body, html {
   border-radius: 6px;
   color: #38bdf8;
   flex-grow: 1;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }
 
 .mcp-tools-grid {
