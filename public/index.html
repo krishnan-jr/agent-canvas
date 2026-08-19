@@ -286,6 +286,22 @@
 
       <!-- Quick Frontmatter Field Toolbar -->
       <div class="editor-quick-toolbar">
+        <div class="editor-role-picker-wrapper" id="editor-role-picker-wrapper">
+          <button type="button" class="btn btn-secondary btn-xs" id="btn-toggle-editor-role-picker" title="Select agent execution role">
+            <span class="role-dot" id="editor-role-dot"></span>
+            <span id="editor-role-picker-label">Role: assistant</span>
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="editor-role-dropdown hidden" id="editor-role-dropdown">
+            <div class="role-dropdown-header">Accepted Universal Roles</div>
+            <div class="role-dropdown-list" id="editor-role-dropdown-list">
+              <!-- Dynamically populated with all 7 accepted roles -->
+            </div>
+          </div>
+        </div>
+
+        <div class="divider-sm"></div>
+
         <span class="toolbar-label">Insert Field:</span>
         <div class="toolbar-chips" id="editor-field-chips">
           <button type="button" class="field-chip" data-field="role">+ role</button>
@@ -311,6 +327,12 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Quick Role Values Hint Strip -->
+      <div class="editor-role-hint-strip" id="editor-role-hint-strip">
+        <span class="role-hint-title">Accepted Roles:</span>
+        <div class="role-hint-pills" id="editor-role-hint-pills"></div>
       </div>
 
       <div class="modal-body-split">

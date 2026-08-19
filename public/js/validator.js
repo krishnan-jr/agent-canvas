@@ -12,6 +12,16 @@ export const UNIVERSAL_ROLES = [
   'tool'
 ];
 
+export const UNIVERSAL_ROLE_DEFINITIONS = [
+  { role: 'orchestrator', color: '#38bdf8', label: 'Orchestrator', desc: 'Master supervisor coordinating workflows, scheduling, and subagent delegation.' },
+  { role: 'assistant', color: '#64748b', label: 'Assistant', desc: 'General conversational agent executing interactive queries and general tasks.' },
+  { role: 'researcher', color: '#818cf8', label: 'Researcher', desc: 'Read-only explorer gathering codebase context, documentation, and web data.' },
+  { role: 'evaluator', color: '#10b981', label: 'Evaluator', desc: 'Quality gatekeeper auditing test coverage, lint checks, and security guardrails.' },
+  { role: 'router', color: '#f59e0b', label: 'Router', desc: 'Decision node evaluating conditions, branching paths, and retry transitions.' },
+  { role: 'coder', color: '#a855f7', label: 'Coder', desc: 'Implementation engineer focused on writing, editing, and refactoring source code.' },
+  { role: 'tool', color: '#71717a', label: 'Tool', desc: 'Specialized deterministic utility agent executing discrete bash scripts or tools.' }
+];
+
 export const STANDARD_TOOLS = [
   'file_reader',
   'file_writer',
@@ -38,10 +48,11 @@ export const FIELD_DOCUMENTATION = {
     type: 'string',
     description: "Defines the agent's primary execution role and hierarchy tier in the multi-agent system.",
     allowedValues: UNIVERSAL_ROLES,
+    roleDefinitions: UNIVERSAL_ROLE_DEFINITIONS,
     example: 'role: assistant',
     harnesses: [
       { name: 'Claude Code', support: 'Full', note: 'Maps to subagent behavior & /commands definition' },
-      { name: 'OpenCode', support: 'Full', note: 'Defines agent role in AGENTS.md' },
+      { name: 'OpenCode', support: 'Full', note: 'Defines agent role & mode (primary vs subagent) in AGENTS.md' },
       { name: 'Cursor', support: 'Full', note: 'Used in .cursorrules agent hierarchy' },
       { name: 'Antigravity', support: 'Full', note: 'Defines subagent role in GEMINI.md' },
       { name: 'Codex', support: 'Full', note: 'Mapped to assistant role metadata' }

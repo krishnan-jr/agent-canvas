@@ -3109,6 +3109,214 @@ body, html {
   font-size: 11.5px;
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Agent Editor Role Picker Dropdown & Hint Strip
+   ========================================================================== */
+
+.editor-role-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.role-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #64748b;
+  box-shadow: 0 0 6px rgba(100, 116, 139, 0.6);
+  flex-shrink: 0;
+}
+
+.role-dot.role-orchestrator { background-color: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+.role-dot.role-assistant { background-color: #64748b; box-shadow: 0 0 6px #64748b; }
+.role-dot.role-researcher { background-color: #818cf8; box-shadow: 0 0 6px #818cf8; }
+.role-dot.role-evaluator { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
+.role-dot.role-router { background-color: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.role-dot.role-coder { background-color: #a855f7; box-shadow: 0 0 6px #a855f7; }
+.role-dot.role-tool { background-color: #71717a; box-shadow: 0 0 6px #71717a; }
+
+.editor-role-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  max-height: 380px;
+  background-color: #1a1a24;
+  border: 1px solid #38384d;
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75);
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  animation: dropdownFadeIn 0.12s ease;
+}
+
+.role-dropdown-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background-color: #13131b;
+}
+
+.role-dropdown-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.role-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  border: 1px solid transparent;
+}
+
+.role-dropdown-item:hover {
+  background-color: #232332;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.role-dropdown-item.active {
+  background-color: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.role-item-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid;
+}
+
+.role-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.role-item-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.role-item-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Quick Role Hint Strip */
+.editor-role-hint-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background-color: #121217;
+  border-bottom: 1px solid #232330;
+  overflow-x: auto;
+}
+
+.role-hint-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.role-hint-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.role-hint-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  background-color: #191922;
+  border: 1px solid #2e2e3e;
+  color: #d1d5db;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.role-hint-pill:hover {
+  background-color: #242432;
+  border-color: currentColor;
+  transform: translateY(-1px);
+}
+
+.role-hint-pill.active {
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.role-hint-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-roles-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.tooltip-role-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.tooltip-role-badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.tooltip-role-desc {
+  font-size: 10.5px;
+  color: #cbd5e1;
+  line-height: 1.3;
+}
 /* ==========================================================================
    Graph Health Diagnostics & Popover
    ========================================================================== */

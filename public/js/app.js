@@ -5,7 +5,7 @@ import { dialog } from './dialog.js';
 import { ProjectManager } from './projects.js';
 import { ExportStudio } from './exportStudio.js';
 import { SkillsManager } from './skillsManager.js';
-import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION } from './validator.js';
+import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
 
 // Pre-configured agent block templates
 const TEMPLATES = {
@@ -381,6 +381,65 @@ class App {
       document.body.appendChild(tooltipElem);
     }
 
+    // Role selector & hint pills setup
+    const rolePickerBtn = document.getElementById('btn-toggle-editor-role-picker');
+    const roleDropdown = document.getElementById('editor-role-dropdown');
+    const roleDropdownList = document.getElementById('editor-role-dropdown-list');
+    const rolePickerLabel = document.getElementById('editor-role-picker-label');
+    const roleDot = document.getElementById('editor-role-dot');
+    const roleHintPills = document.getElementById('editor-role-hint-pills');
+
+    if (roleDropdownList) {
+      roleDropdownList.innerHTML = UNIVERSAL_ROLE_DEFINITIONS.map(r => `
+        <div class="role-dropdown-item" data-role="${r.role}">
+          <span class="role-item-badge" style="color: ${r.color}; border-color: ${r.color}66; background-color: ${r.color}15;">${r.role}</span>
+          <div class="role-item-info">
+            <span class="role-item-title">${r.label}</span>
+            <span class="role-item-desc">${r.desc}</span>
+          </div>
+        </div>
+      `).join('');
+
+      roleDropdownList.querySelectorAll('.role-dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const role = item.dataset.role;
+          this.setAgentRole(textarea, role);
+          if (roleDropdown) roleDropdown.classList.add('hidden');
+          updateValidation();
+        });
+      });
+    }
+
+    if (roleHintPills) {
+      roleHintPills.innerHTML = UNIVERSAL_ROLE_DEFINITIONS.map(r => `
+        <button type="button" class="role-hint-pill" data-role="${r.role}" title="${escapeHtml(r.desc)}">
+          <span class="role-hint-pill-dot" style="background-color: ${r.color};"></span>
+          <span>${r.role}</span>
+        </button>
+      `).join('');
+
+      roleHintPills.querySelectorAll('.role-hint-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const role = pill.dataset.role;
+          this.setAgentRole(textarea, role);
+          updateValidation();
+        });
+      });
+    }
+
+    if (rolePickerBtn && roleDropdown) {
+      rolePickerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        roleDropdown.classList.toggle('hidden');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#editor-role-picker-wrapper')) {
+          roleDropdown.classList.add('hidden');
+        }
+      });
+    }
+
     const updateValidation = () => {
       const val = textarea.value;
       const res = validateAgentSchema(val);
@@ -405,6 +464,27 @@ class App {
         statusPill.className = 'validation-status-pill valid';
         statusText.textContent = 'Universal Schema Valid';
         banner.classList.add('hidden');
+      }
+
+      // Sync role UI controls (picker label, dot, active pills)
+      const currentRole = frontmatter.role ? String(frontmatter.role).toLowerCase() : 'assistant';
+      if (rolePickerLabel) {
+        rolePickerLabel.textContent = `Role: ${currentRole}`;
+      }
+      if (roleDot) {
+        roleDot.className = `role-dot role-${currentRole}`;
+      }
+      if (roleHintPills) {
+        roleHintPills.querySelectorAll('.role-hint-pill').forEach(p => {
+          if (p.dataset.role === currentRole) {
+            p.classList.add('active');
+            const def = UNIVERSAL_ROLE_DEFINITIONS.find(r => r.role === currentRole);
+            if (def) p.style.borderColor = def.color;
+          } else {
+            p.classList.remove('active');
+            p.style.borderColor = '';
+          }
+        });
       }
 
       // Update Presence state on toolbar chips
@@ -530,6 +610,21 @@ class App {
             </div>
           `).join('');
 
+          let acceptedRolesHtml = '';
+          if (doc.roleDefinitions && Array.isArray(doc.roleDefinitions)) {
+            acceptedRolesHtml = `
+              <div class="tooltip-section-title">Accepted Universal Roles</div>
+              <div class="tooltip-roles-grid">
+                ${doc.roleDefinitions.map(r => `
+                  <div class="tooltip-role-row">
+                    <span class="tooltip-role-badge" style="color: ${r.color}; border-color: ${r.color}55; background-color: ${r.color}15;">${r.role}</span>
+                    <span class="tooltip-role-desc">${r.desc}</span>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+          }
+
           tooltipElem.innerHTML = `
             <div class="tooltip-header">
               <div class="tooltip-prop-title">
@@ -538,6 +633,7 @@ class App {
               </div>
             </div>
             <div class="tooltip-desc">${doc.description}</div>
+            ${acceptedRolesHtml}
             <div class="tooltip-section-title">Supported Harnesses & Platforms</div>
             <div class="tooltip-harnesses">${harnessListHtml}</div>
             <div class="tooltip-section-title">Example Syntax</div>
@@ -598,6 +694,39 @@ class App {
     });
   }
 
+  setAgentRole(textarea, roleName) {
+    let content = textarea.value;
+    const roleLine = `role: ${roleName}`;
+
+    if (content.startsWith('---')) {
+      const secondDash = content.indexOf('---', 3);
+      if (secondDash > 0) {
+        let ymlContent = content.slice(3, secondDash).trim();
+        const lines = ymlContent.split('\n');
+        let found = false;
+        const newLines = [];
+        for (const l of lines) {
+          if (l.trim().startsWith('role:')) {
+            found = true;
+            newLines.push(roleLine);
+          } else {
+            newLines.push(l);
+          }
+        }
+        if (!found) {
+          newLines.unshift(roleLine);
+        }
+        const bodyContent = content.slice(secondDash + 3).replace(/^\r?\n/, '');
+        content = `---\n${newLines.join('\n')}\n---\n\n${bodyContent}`;
+      }
+    } else {
+      content = `---\n${roleLine}\n---\n\n${content}`;
+    }
+
+    textarea.value = content;
+    dialog.toast(`Updated agent role to '${roleName}'`, 'info');
+  }
+
   updateAgentSkillsFrontmatter(textarea, selectedSkills = []) {
     let content = textarea.value;
     const skillsLine = selectedSkills.length > 0
@@ -635,6 +764,12 @@ class App {
   insertFrontmatterField(textarea, field) {
     let content = textarea.value;
     const { frontmatter } = parseAgentYaml(content);
+
+    // If field is role, toggle open the role dropdown picker
+    if (field === 'role') {
+      const dropdown = document.getElementById('editor-role-dropdown');
+      if (dropdown) dropdown.classList.toggle('hidden');
+    }
 
     // If field is skills, toggle open the skills dropdown picker
     if (field === 'skills') {
