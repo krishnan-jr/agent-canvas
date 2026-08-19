@@ -181,19 +181,74 @@
     </div>
   </aside>
 
-  <!-- Bottom Drawer: Agent Orchestration Simulator -->
+  <!-- Bottom Drawer: Live LLM Execution & Trace Inspector -->
   <div id="execution-drawer" class="execution-drawer hidden">
     <div class="drawer-header">
-      <div class="drawer-title">
-        <span class="pulse-dot"></span>
-        Agent Execution Pipeline
+      <div class="drawer-title-group">
+        <div class="drawer-title">
+          <span class="pulse-dot"></span>
+          Live LLM Execution Sandbox
+        </div>
+        <div class="drawer-tabs">
+          <button class="drawer-tab active" data-tab="stream">Live Console</button>
+          <button class="drawer-tab" data-tab="traces">Trace Inspector</button>
+          <button class="drawer-tab" data-tab="telemetry">Telemetry Profile</button>
+        </div>
       </div>
       <div class="drawer-actions">
+        <div class="exec-metrics-summary">
+          <span id="exec-metric-tokens" class="metric-pill tokens">0 tokens</span>
+          <span id="exec-metric-cost" class="metric-pill cost">$0.0000</span>
+          <span id="exec-metric-time" class="metric-pill latency">0ms</span>
+        </div>
         <span id="exec-status-text" class="exec-status">Idle</span>
-        <button id="btn-close-drawer" class="btn-icon">✕</button>
+        <button id="btn-close-drawer" class="btn-icon" title="Close Drawer">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
     </div>
-    <div class="drawer-body" id="execution-logs"></div>
+
+    <!-- Human-in-the-Loop Approval Banner -->
+    <div id="approval-gate-banner" class="approval-gate-banner hidden">
+      <div class="approval-gate-content">
+        <div class="approval-gate-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <strong>Decision Checkpoint:</strong> <span id="approval-node-name">Evaluator Gate</span> requires review
+        </div>
+        <div class="approval-gate-preview" id="approval-payload-preview"></div>
+      </div>
+      <div class="approval-gate-actions">
+        <button id="btn-approval-reject" class="btn btn-secondary btn-sm">Reject &amp; Re-route</button>
+        <button id="btn-approval-approve" class="btn btn-primary btn-sm">Approve &amp; Continue</button>
+      </div>
+    </div>
+
+    <!-- Drawer Content Views -->
+    <div class="drawer-views">
+      <!-- Live Streaming Console -->
+      <div id="drawer-view-stream" class="drawer-view active">
+        <div class="drawer-body" id="execution-logs"></div>
+      </div>
+
+      <!-- Trace Inspector Timeline & Detail Pane -->
+      <div id="drawer-view-traces" class="drawer-view hidden">
+        <div class="trace-inspector-layout">
+          <div class="trace-steps-sidebar" id="trace-steps-list"></div>
+          <div class="trace-detail-pane" id="trace-detail-pane">
+            <div class="trace-placeholder">Select a step to inspect full context, skills, and payload</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry Profile Summary -->
+      <div id="drawer-view-telemetry" class="drawer-view hidden">
+        <div class="telemetry-profile-view" id="telemetry-profile-content"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Markdown Deep Editor Modal -->

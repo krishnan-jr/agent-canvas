@@ -41,6 +41,7 @@ import {
   SUPPORTED_TARGETS
 } from './exporters/index.js';
 import { validateAgentSchema, validateGraphTopology } from './validator.js';
+import { executeWorkflowStream, resumeApprovalSession } from './llmRunner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -523,6 +524,51 @@ Detailed runbook and instructions for this skill.
       const skills = getSkillsByProject(projectId);
       const result = validateGraphTopology(nodes, edges, skills);
       return sendJson(res, 200, { success: true, ...result });
+    }
+
+    // GET or POST /api/orchestrate/run-stream (Real-time SSE Live LLM / Sandbox Runner)
+    if (pathname === '/api/orchestrate/run-stream' && (method === 'GET' || method === 'POST')) {
+      let projectId = 'project-default';
+      if (method === 'GET') {
+        const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+        projectId = urlObj.searchParams.get('projectId') || 'project-default';
+      } else {
+        const body = await parseJsonBody(req);
+        projectId = body.projectId || 'project-default';
+      }
+
+      const nodes = getNodesByProject(projectId);
+      const edges = getEdgesByProject(projectId);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+
+      const sendEvent = (event, data) => {
+        try {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        } catch (e) {}
+      };
+
+      try {
+        await executeWorkflowStream(nodes, edges, projectId, sendEvent);
+      } catch (err) {
+        sendEvent('error', { message: err.message });
+      } finally {
+        res.end();
+      }
+      return;
+    }
+
+    // POST /api/orchestrate/approve (Human-in-the-Loop Gate Resumption)
+    if (pathname === '/api/orchestrate/approve' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const { runId, action, modifiedPayload } = body;
+      const resumed = resumeApprovalSession(runId, action, modifiedPayload);
+      return sendJson(res, 200, { success: resumed });
     }
 
     // POST /api/orchestrate/simulate (Enhanced with Conditional Decision Loops & Retries)

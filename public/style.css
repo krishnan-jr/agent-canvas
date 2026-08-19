@@ -3391,4 +3391,617 @@ body, html {
   opacity: 0.7;
 }
 
+/* ==========================================================================
+   Live LLM Execution Sandbox, Streaming & Trace Inspector
+   ========================================================================== */
+
+.drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.drawer-tabs {
+  display: flex;
+  gap: 4px;
+  background-color: rgba(255, 255, 255, 0.04);
+  padding: 2px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.drawer-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drawer-tab:hover {
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.drawer-tab.active {
+  background-color: #272732;
+  color: #38bdf8;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.exec-metrics-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-pill {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+
+.metric-pill.tokens {
+  background-color: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.metric-pill.cost {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.metric-pill.latency {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.exec-status.running {
+  color: #38bdf8;
+}
+
+.exec-status.finished {
+  color: #10b981;
+}
+
+.exec-status.paused {
+  color: #f59e0b;
+}
+
+.exec-status.failed {
+  color: #ef4444;
+}
+
+/* Approval Gate Banner */
+.approval-gate-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background-color: rgba(245, 158, 11, 0.08);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  animation: bannerSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bannerSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.approval-gate-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-gate-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #f59e0b;
+}
+
+.approval-gate-preview {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 600px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.approval-gate-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Live Streaming Log View */
+.drawer-views {
+  height: calc(100% - 44px);
+  overflow: hidden;
+}
+
+.drawer-view {
+  height: 100%;
+}
+
+.drawer-view.hidden {
+  display: none;
+}
+
+.stream-entry {
+  background-color: #181820;
+  border: 1px solid #2d2d38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stream-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stream-title {
+  font-size: 12.5px;
+  color: var(--text-main);
+}
+
+.stream-model-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  color: #94a3b8;
+}
+
+.stream-skill-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: rgba(56, 189, 248, 0.12);
+  border-radius: 4px;
+  color: #38bdf8;
+}
+
+.stream-body-wrapper {
+  background-color: #121217;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.stream-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.stream-code {
+  font-family: inherit;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background-color: #38bdf8;
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: cursorBlink 0.8s infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.stream-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.verdict-pill {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.verdict-approved {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.verdict-rejected {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.stream-meta-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Trace Inspector Layout
+   ========================================================================== */
+
+.trace-inspector-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.trace-steps-sidebar {
+  width: 280px;
+  min-width: 240px;
+  border-right: 1px solid var(--border-color);
+  background-color: #16161d;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trace-step-item {
+  padding: 8px 10px;
+  background-color: #1c1c24;
+  border: 1px solid #282834;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trace-step-item:hover {
+  background-color: #22222e;
+  border-color: #38bdf8;
+}
+
+.trace-step-item.active {
+  background-color: #232332;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+}
+
+.trace-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trace-step-number {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.trace-item-title {
+  font-size: 12px;
+  color: var(--text-main);
+  flex-grow: 1;
+  margin-left: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trace-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.trace-status-dot.status-approved {
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.trace-status-dot.status-rejected {
+  background-color: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+.trace-item-sub {
+  display: flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.trace-role-tag {
+  color: var(--text-muted);
+}
+
+.trace-tokens-tag {
+  color: #38bdf8;
+}
+
+.trace-cost-tag {
+  color: #818cf8;
+  margin-left: auto;
+}
+
+.trace-detail-pane {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #141418;
+}
+
+.trace-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trace-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 12px;
+}
+
+.trace-detail-stage {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.trace-detail-title {
+  margin: 2px 0 0 0;
+  font-size: 16px;
+  color: var(--text-main);
+}
+
+.trace-filename {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.trace-header-verdict {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.trace-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.kpi-box {
+  background-color: #1a1a24;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.kpi-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.trace-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trace-section-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trace-skills-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trace-skill-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  background-color: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+  color: #38bdf8;
+}
+
+.trace-code-box {
+  margin: 0;
+  background-color: #101014;
+  border: 1px solid #23232f;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.trace-placeholder, .trace-empty-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 40px;
+}
+
+/* ==========================================================================
+   Telemetry Profile Dashboard
+   ========================================================================== */
+
+.telemetry-dashboard {
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.telemetry-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.telemetry-card {
+  background-color: #181822;
+  border: 1px solid #2a2a38;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.telemetry-card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.telemetry-card-val {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.telemetry-card-val.cost-accent {
+  color: #818cf8;
+}
+
+.telemetry-sub {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+.telemetry-table-container {
+  background-color: #16161f;
+  border: 1px solid #2a2a38;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.telemetry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.telemetry-table th {
+  background-color: #1c1c28;
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #2a2a38;
+}
+
+.telemetry-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+}
+
+.role-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.verdict-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-approved {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.badge-rejected {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+
 
