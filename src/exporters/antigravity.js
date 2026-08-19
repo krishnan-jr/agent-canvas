@@ -223,5 +223,24 @@ ${body.trim()}
     }
   }
 
+  // 4. Generate .gemini/config/mcp_config.json for Antigravity MCP integration
+  const agyMcpConfig = {
+    "mcpServers": {
+      "agent-canvas": {
+        "command": "node",
+        "args": ["src/mcpServer.js"]
+      },
+      "agent-canvas-remote": {
+        "serverUrl": "http://localhost:3000/api/mcp/sse"
+      }
+    }
+  };
+
+  files.push({
+    path: '.gemini/config/mcp_config.json',
+    content: JSON.stringify(agyMcpConfig, null, 2),
+    language: 'json'
+  });
+
   return files;
 }

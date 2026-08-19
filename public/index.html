@@ -350,17 +350,67 @@
         </div>
 
         <div class="mcp-tabs">
-          <button class="mcp-tab-btn active" data-mcp-tab="claude">Claude Desktop</button>
-          <button class="mcp-tab-btn" data-mcp-tab="cursor">Cursor / Cline</button>
+          <button class="mcp-tab-btn active" data-mcp-tab="opencode">OpenCode</button>
+          <button class="mcp-tab-btn" data-mcp-tab="claudecode">Claude Code (CLI)</button>
+          <button class="mcp-tab-btn" data-mcp-tab="claude">Claude Desktop</button>
+          <button class="mcp-tab-btn" data-mcp-tab="cursor">Cursor</button>
           <button class="mcp-tab-btn" data-mcp-tab="antigravity">Antigravity (AGY)</button>
+          <button class="mcp-tab-btn" data-mcp-tab="cline">Cline / Windsurf</button>
           <button class="mcp-tab-btn" data-mcp-tab="sse">HTTP / SSE</button>
           <button class="mcp-tab-btn" data-mcp-tab="tools">Available Tools (22)</button>
         </div>
 
-        <!-- Tab 1: Claude Desktop -->
-        <div class="mcp-tab-content active" id="mcp-tab-claude">
+        <!-- Tab 1: OpenCode -->
+        <div class="mcp-tab-content active" id="mcp-tab-opencode">
           <div class="mcp-config-guide">
-            Add this configuration to your <code>claude_desktop_config.json</code>:
+            OpenCode manages MCP servers via the <code>mcp</code> block in <code>opencode.json</code> (project root) or <code>~/.config/opencode/opencode.json</code> (global):
+          </div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-opencode">{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "agent-canvas": {
+      "type": "local",
+      "command": ["node", "/Users/maeve/Developer/agent-code/src/mcpServer.js"],
+      "enabled": true
+    }
+  }
+}</code></pre>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-opencode">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy Local Config
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Claude Code (CLI) -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-claudecode">
+          <div class="mcp-config-guide">
+            In Claude Code CLI, add via terminal command or project-level <code>.mcp.json</code> / global <code>~/.claude.json</code>:
+          </div>
+          <div class="mcp-sub-heading">Terminal Command:</div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-claudecode-cli">claude mcp add agent-canvas --command="node" --args="/Users/maeve/Developer/agent-code/src/mcpServer.js"</code></pre>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-claudecode-cli">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy CLI Command
+            </button>
+          </div>
+          <div class="mcp-sub-heading" style="margin-top: 10px;">Or in <code>.mcp.json</code>:</div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-claudecode-json">{
+  "mcpServers": {
+    "agent-canvas": {
+      "command": "node",
+      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+    }
+  }
+}</code></pre>
+        </div>
+
+        <!-- Tab 3: Claude Desktop -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-claude">
+          <div class="mcp-config-guide">
+            Add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):
           </div>
           <pre class="mcp-code-snippet"><code id="mcp-snippet-claude">{
   "mcpServers": {
@@ -370,16 +420,18 @@
     }
   }
 }</code></pre>
-          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-claude">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy Config
-          </button>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-claude">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy Config
+            </button>
+          </div>
         </div>
 
-        <!-- Tab 2: Cursor / Cline -->
+        <!-- Tab 4: Cursor -->
         <div class="mcp-tab-content hidden" id="mcp-tab-cursor">
           <div class="mcp-config-guide">
-            Add to your Cursor MCP settings (<code>.cursor/mcp.json</code>) or Cline extension settings:
+            Add to your project <code>.cursor/mcp.json</code> or global <code>~/.cursor/mcp.json</code>:
           </div>
           <pre class="mcp-code-snippet"><code id="mcp-snippet-cursor">{
   "mcpServers": {
@@ -389,18 +441,45 @@
     }
   }
 }</code></pre>
-          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-cursor">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy Config
-          </button>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-cursor">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy Config
+            </button>
+          </div>
         </div>
 
-        <!-- Tab 3: Antigravity -->
+        <!-- Tab 5: Antigravity (AGY) -->
         <div class="mcp-tab-content hidden" id="mcp-tab-antigravity">
           <div class="mcp-config-guide">
-            Add to Antigravity MCP settings (<code>~/.gemini/antigravity/mcp.json</code>):
+            Add to global <code>~/.gemini/config/mcp_config.json</code> or plugin <code>plugins/&lt;name&gt;/mcp_config.json</code> (supports STDIO and SSE <code>serverUrl</code>):
           </div>
           <pre class="mcp-code-snippet"><code id="mcp-snippet-antigravity">{
+  "mcpServers": {
+    "agent-canvas": {
+      "command": "node",
+      "args": ["/Users/maeve/Developer/agent-code/src/mcpServer.js"]
+    },
+    "agent-canvas-remote": {
+      "serverUrl": "http://localhost:3000/api/mcp/sse"
+    }
+  }
+}</code></pre>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-antigravity">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy Config
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 6: Cline / Windsurf -->
+        <div class="mcp-tab-content hidden" id="mcp-tab-cline">
+          <div class="mcp-config-guide">
+            For <strong>Cline</strong> (VS Code extension): <code>cline_mcp_settings.json</code><br>
+            For <strong>Windsurf</strong> (Codeium): <code>~/.codeium/windsurf/mcp_config.json</code>
+          </div>
+          <pre class="mcp-code-snippet"><code id="mcp-snippet-cline">{
   "mcpServers": {
     "agent-canvas": {
       "command": "node",
@@ -408,16 +487,18 @@
     }
   }
 }</code></pre>
-          <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-antigravity">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy Config
-          </button>
+          <div class="mcp-tab-actions">
+            <button class="btn btn-secondary btn-sm btn-copy-mcp" data-copy-target="mcp-snippet-cline">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy Config
+            </button>
+          </div>
         </div>
 
-        <!-- Tab 4: HTTP / SSE -->
+        <!-- Tab 7: HTTP / SSE -->
         <div class="mcp-tab-content hidden" id="mcp-tab-sse">
           <div class="mcp-config-guide">
-            For remote agents connecting over standard HTTP / Server-Sent Events:
+            For remote agents or web hooks connecting over standard HTTP / Server-Sent Events:
           </div>
           <div class="mcp-endpoint-row">
             <span class="endpoint-label">SSE Stream URL:</span>

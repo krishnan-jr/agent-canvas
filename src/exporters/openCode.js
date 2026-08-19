@@ -121,5 +121,23 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     }
   }
 
+  // 4. Generate opencode.json with OpenCode native MCP server configuration
+  const opencodeConfig = {
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+      "agent-canvas": {
+        "type": "local",
+        "command": ["node", "src/mcpServer.js"],
+        "enabled": true
+      }
+    }
+  };
+
+  files.push({
+    path: 'opencode.json',
+    content: JSON.stringify(opencodeConfig, null, 2),
+    language: 'json'
+  });
+
   return files;
 }

@@ -146,5 +146,21 @@ Execute ${baseName} subagent task:
     }
   }
 
+  // 4. Generate .mcp.json for Claude Code CLI integration
+  const mcpConfig = {
+    "mcpServers": {
+      "agent-canvas": {
+        "command": "node",
+        "args": ["src/mcpServer.js"]
+      }
+    }
+  };
+
+  files.push({
+    path: '.mcp.json',
+    content: JSON.stringify(mcpConfig, null, 2),
+    language: 'json'
+  });
+
   return files;
 }

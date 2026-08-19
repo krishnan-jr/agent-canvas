@@ -91,5 +91,21 @@ alwaysApply: false
     }
   }
 
+  // 4. Generate .cursor/mcp.json for Cursor MCP integration
+  const cursorMcpConfig = {
+    "mcpServers": {
+      "agent-canvas": {
+        "command": "node",
+        "args": ["src/mcpServer.js"]
+      }
+    }
+  };
+
+  files.push({
+    path: '.cursor/mcp.json',
+    content: JSON.stringify(cursorMcpConfig, null, 2),
+    language: 'json'
+  });
+
   return files;
 }

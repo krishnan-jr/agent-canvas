@@ -4206,6 +4206,21 @@ body, html {
   overflow-x: auto;
 }
 
+.mcp-sub-heading {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.mcp-tab-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .btn-copy-mcp {
   align-self: flex-start;
 }
