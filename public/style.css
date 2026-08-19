@@ -3481,12 +3481,12 @@ body, html {
   top: calc(100% + 6px);
   left: 0;
   width: 320px;
-  max-height: 380px;
+  max-height: 280px;
   background-color: #1a1a24;
   border: 1px solid #38384d;
   border-radius: var(--radius-md);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75);
-  z-index: 250;
+  z-index: 500;
   display: flex;
   flex-direction: column;
   overflow: hidden;

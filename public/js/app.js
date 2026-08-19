@@ -738,11 +738,13 @@ class App {
         if (!found) {
           newLines.unshift(roleLine);
         }
-        const bodyContent = content.slice(secondDash + 3).replace(/^\r?\n/, '');
-        content = `---\n${newLines.join('\n')}\n---\n\n${bodyContent}`;
+        const rawBody = content.slice(secondDash + 3);
+        const bodyContent = rawBody.replace(/^[\r\n]+/, '');
+        content = bodyContent ? `---\n${newLines.join('\n')}\n---\n\n${bodyContent}` : `---\n${newLines.join('\n')}\n---`;
       }
     } else {
-      content = `---\n${roleLine}\n---\n\n${content}`;
+      const bodyContent = content.replace(/^[\r\n]+/, '');
+      content = bodyContent ? `---\n${roleLine}\n---\n\n${bodyContent}` : `---\n${roleLine}\n---`;
     }
 
     textarea.value = content;
@@ -773,11 +775,13 @@ class App {
         if (!found && skillsLine) {
           newLines.push(skillsLine);
         }
-        const bodyContent = content.slice(secondDash + 3).replace(/^\r?\n/, '');
-        content = `---\n${newLines.join('\n')}\n---\n\n${bodyContent}`;
+        const rawBody = content.slice(secondDash + 3);
+        const bodyContent = rawBody.replace(/^[\r\n]+/, '');
+        content = bodyContent ? `---\n${newLines.join('\n')}\n---\n\n${bodyContent}` : `---\n${newLines.join('\n')}\n---`;
       }
     } else if (skillsLine) {
-      content = `---\n${skillsLine}\n---\n\n${content}`;
+      const bodyContent = content.replace(/^[\r\n]+/, '');
+      content = bodyContent ? `---\n${skillsLine}\n---\n\n${bodyContent}` : `---\n${skillsLine}\n---`;
     }
 
     textarea.value = content;
@@ -826,14 +830,14 @@ class App {
     }
 
     const snippets = {
-      role: 'role: assistant\n',
-      description: 'description: Specialized agent capability description\n',
-      skills: 'skills: [git-workflow]\n',
-      tools: 'tools: [file_reader, grep_search, bash]\n',
-      routes: 'routes:\n  - on: pass\n    target: next-agent.md\n    label: "Approved"\n  - on: fail\n    target: planner.md\n    label: "Retry"\n    max_retries: 3\n',
-      globs: 'globs: ["src/**/*.js", "api/**"]\n',
-      model: 'model: claude-3-5-sonnet\n',
-      temperature: 'temperature: 0.2\n'
+      role: 'role: assistant',
+      description: 'description: Specialized agent capability description',
+      skills: 'skills: [git-workflow]',
+      tools: 'tools: [file_reader, grep_search, bash]',
+      routes: 'routes:\n  - on: pass\n    target: next-agent.md\n    label: "Approved"\n  - on: fail\n    target: planner.md\n    label: "Retry"\n    max_retries: 3',
+      globs: 'globs: ["src/**/*.js", "api/**"]',
+      model: 'model: claude-3-5-sonnet',
+      temperature: 'temperature: 0.2'
     };
 
     const snippet = snippets[field];
@@ -843,21 +847,26 @@ class App {
     if (content.startsWith('---')) {
       const secondDash = content.indexOf('---', 3);
       if (secondDash > 0) {
-        insertStartPos = secondDash;
-        content = content.slice(0, secondDash) + snippet + content.slice(secondDash);
+        let yml = content.slice(3, secondDash).trimEnd();
+        const bodyContent = content.slice(secondDash + 3).replace(/^[\r\n]+/, '');
+        insertStartPos = yml.length + 4; // pos after opening --- \n yml \n
+        const newYml = yml ? `${yml}\n${snippet}` : snippet;
+        content = bodyContent ? `---\n${newYml}\n---\n\n${bodyContent}` : `---\n${newYml}\n---`;
       } else {
         insertStartPos = 4;
-        content = `---\n${snippet}---\n\n${content}`;
+        const bodyContent = content.replace(/^[\r\n]+/, '');
+        content = bodyContent ? `---\n${snippet}\n---\n\n${bodyContent}` : `---\n${snippet}\n---`;
       }
     } else {
       insertStartPos = 4;
-      content = `---\n${snippet}---\n\n${content}`;
+      const bodyContent = content.replace(/^[\r\n]+/, '');
+      content = bodyContent ? `---\n${snippet}\n---\n\n${bodyContent}` : `---\n${snippet}\n---`;
     }
 
     textarea.value = content;
     textarea.focus();
     // Highlight the newly inserted snippet
-    textarea.setSelectionRange(insertStartPos, insertStartPos + snippet.length - 1);
+    textarea.setSelectionRange(insertStartPos, insertStartPos + snippet.length);
     dialog.toast(`Added ${field} to frontmatter`, 'info');
   }
 
