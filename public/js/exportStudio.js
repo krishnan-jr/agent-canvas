@@ -13,7 +13,6 @@ export class ExportStudio {
     this.currentTarget = 'claude-code';
     this.currentFiles = [];
     this.selectedFileIndex = 0;
-    this.isDiffMode = false;
     this.createElements();
   }
 
@@ -106,7 +105,7 @@ export class ExportStudio {
             <div class="export-file-list" id="es-file-list"></div>
           </div>
 
-          <!-- Right: Code Viewer / Diff Inspector -->
+          <!-- Right: Code Viewer -->
           <div class="export-code-pane">
             <div class="pane-header">
               <div class="preview-header-left">
@@ -114,12 +113,6 @@ export class ExportStudio {
                 <span id="es-file-meta" class="preview-file-meta">0 lines</span>
               </div>
               <div class="preview-header-actions">
-                <button id="es-btn-toggle-diff" class="btn btn-secondary btn-sm" title="Toggle Live Diff Inspector">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                  </svg>
-                  Diff View
-                </button>
                 <button id="es-btn-copy" class="btn btn-secondary btn-sm" title="Copy file content to clipboard">
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -180,20 +173,6 @@ export class ExportStudio {
         this.loadPreview();
       });
     });
-
-    // Toggle Diff Mode
-    const toggleDiffBtn = document.getElementById('es-btn-toggle-diff');
-    if (toggleDiffBtn) {
-      toggleDiffBtn.addEventListener('click', () => {
-        this.isDiffMode = !this.isDiffMode;
-        if (this.isDiffMode) {
-          toggleDiffBtn.classList.add('active');
-        } else {
-          toggleDiffBtn.classList.remove('active');
-        }
-        this.renderCodePreview();
-      });
-    }
 
     // Copy file content
     document.getElementById('es-btn-copy').addEventListener('click', () => {
@@ -465,39 +444,45 @@ export class ExportStudio {
     filenameElem.textContent = activeFile.path;
     const lines = (activeFile.content || '').split('\n');
     if (metaElem) metaElem.textContent = `${lines.length} line${lines.length === 1 ? '' : 's'}`;
-
-    if (this.isDiffMode) {
-      codeElem.innerHTML = lines.map(line => {
-        let tag = 'diff-context';
-        let prefix = ' ';
-        if (line.startsWith('#') || line.startsWith('---') || line.startsWith('```')) {
-          tag = 'diff-header';
-          prefix = ' ';
-        } else if (line.trim().length > 0) {
-          tag = 'diff-add';
-          prefix = '+';
-        }
-        return `<span class="diff-line ${tag}"><span class="diff-sign">${prefix}</span> ${escapeHtml(line)}</span>`;
-      }).join('\n');
-    } else {
-      codeElem.textContent = activeFile.content;
-    }
+    codeElem.textContent = activeFile.content || '';
   }
 
   async exportToDisk() {
+    const activeProject = this.app.projectManager ? this.app.projectManager.getActiveProject() : null;
+    const projSlug = activeProject ? (activeProject.slug || activeProject.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')) : 'project';
+    const targetDirDefault = `./workspace/${projSlug}/export_${this.currentTarget.replace(/-/g, '_')}`;
+
+    const promptRes = await dialog.prompt({
+      title: 'Export to Workspace Disk',
+      message: `Specify destination directory path on disk to write ${this.currentFiles.length} generated files:`,
+      defaultValue: targetDirDefault,
+      placeholder: '/path/to/target/directory',
+      confirmText: 'Export Files'
+    });
+
+    if (promptRes.action !== 'save' || !promptRes.value) {
+      return;
+    }
+
+    const chosenPath = promptRes.value.trim();
     const projectId = this.app.currentProjectId;
+
     try {
+      dialog.toast(`Writing ${this.currentFiles.length} files to disk...`, 'info');
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/export/disk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: this.currentTarget })
+        body: JSON.stringify({
+          target: this.currentTarget,
+          customPath: chosenPath
+        })
       });
       const data = await res.json();
 
       if (data.success) {
-        dialog.toast(`Exported ${data.files.length} files to workspace/${data.folder}`, 'success');
+        dialog.toast(`Successfully exported ${data.filesCount} files to ${data.outDir}`, 'success');
       } else {
-        dialog.toast(`Export failed: ${data.error}`, 'error');
+        dialog.toast(`Export failed: ${data.error || 'Unknown error'}`, 'error');
       }
     } catch (err) {
       console.error('Export to disk failed:', err);

@@ -476,12 +476,13 @@ Detailed runbook and instructions for this skill.
       const projectId = decodeURIComponent(diskMatch[1]);
       const body = await parseJsonBody(req);
       const target = body.target || 'claude-code';
+      const customPath = body.customPath || body.targetDir || null;
       const project = getProjectById(projectId);
       const nodes = getNodesByProject(projectId);
       const edges = getEdgesByProject(projectId);
       const skills = getSkillsByProject(projectId);
 
-      const result = exportToDisk(target, project, nodes, edges, WORKSPACE_DIR, skills);
+      const result = exportToDisk(target, project, nodes, edges, WORKSPACE_DIR, skills, customPath);
       return sendJson(res, 200, result);
     }
 

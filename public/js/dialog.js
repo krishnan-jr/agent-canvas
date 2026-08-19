@@ -12,6 +12,7 @@ class DialogManager {
     // Dialog overlay container
     this.overlay = document.createElement('div');
     this.overlay.className = 'custom-dialog-overlay hidden';
+    this.overlay.id = 'custom-main-dialog-overlay';
     this.overlay.innerHTML = `
       <div class="custom-dialog-card">
         <div class="custom-dialog-header">
@@ -172,7 +173,7 @@ class DialogManager {
     });
   }
 
-  prompt({ title = 'Edit', message = '', defaultValue = '', placeholder = '', showDelete = false }) {
+  prompt({ title = 'Edit', message = '', defaultValue = '', placeholder = '', showDelete = false, confirmText = 'Save' }) {
     return new Promise((resolve) => {
       this.titleElem.textContent = title;
       this.messageElem.textContent = message;
@@ -180,9 +181,9 @@ class DialogManager {
       this.inputElem.value = defaultValue;
       this.inputElem.placeholder = placeholder;
       
-      this.iconElem.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+      this.iconElem.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
 
-      this.btnConfirm.textContent = 'Save';
+      this.btnConfirm.textContent = confirmText;
       this.btnConfirm.className = 'btn btn-primary';
       this.btnCancel.textContent = 'Cancel';
 

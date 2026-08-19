@@ -77,11 +77,18 @@ export function transpileProject(target = 'claude-code', project, nodes = [], ed
   }
 }
 
-export function exportToDisk(target = 'claude-code', project, nodes = [], edges = [], baseWorkspaceDir, allSkills = []) {
+export function exportToDisk(target = 'claude-code', project, nodes = [], edges = [], baseWorkspaceDir, allSkills = [], customPath = null) {
   const files = transpileProject(target, project, nodes, edges, allSkills);
   const projSlug = project ? (project.slug || project.id) : 'default';
   const targetDirName = `export_${target.replace(/-/g, '_')}`;
-  const outDir = path.join(baseWorkspaceDir, projSlug, targetDirName);
+
+  let outDir;
+  if (customPath && typeof customPath === 'string' && customPath.trim()) {
+    const trimmed = customPath.trim();
+    outDir = path.isAbsolute(trimmed) ? trimmed : path.resolve(process.cwd(), trimmed);
+  } else {
+    outDir = path.join(baseWorkspaceDir, projSlug, targetDirName);
+  }
 
   if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
