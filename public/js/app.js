@@ -214,6 +214,28 @@ class App {
       this.exportStudio.open();
     });
 
+    // 3-Dot More Actions Menu
+    const btnMore = document.getElementById('btn-more-menu');
+    const moreDropdown = document.getElementById('nav-more-dropdown');
+    if (btnMore && moreDropdown) {
+      btnMore.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moreDropdown.classList.toggle('hidden');
+      });
+
+      moreDropdown.querySelectorAll('.nav-dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+          moreDropdown.classList.add('hidden');
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#nav-more-menu-wrapper')) {
+          moreDropdown.classList.add('hidden');
+        }
+      });
+    }
+
     // MCP Server Connect Modal
     this.initMcpModal();
 

@@ -69,32 +69,39 @@
         Run Workflow
       </button>
 
-      <button id="btn-auto-layout" class="btn btn-secondary" title="Auto-arrange canvas blocks">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="8.5" y="14" width="7" height="7" rx="1.5"/></svg>
-        Layout
-      </button>
-
-      <div class="divider"></div>
-
-      <button id="btn-toggle-files" class="btn btn-secondary" title="View Workspace .md Files">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-        Files
-      </button>
-
-      <button id="btn-skills-library" class="btn btn-secondary" title="Manage Skills Library (Packages, Scripts, References)">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v6M9 9h6"/></svg>
-        Skills
-      </button>
-
-      <button id="btn-export-bundle" class="btn btn-secondary" title="Export all .md files as JSON or ZIP">
+      <button id="btn-export-bundle" class="btn btn-secondary" title="Export multi-target configurations">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
       </button>
 
-      <button id="btn-mcp-server" class="btn btn-secondary" title="Connect External AI Agents via MCP">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-        MCP Server
-      </button>
+      <!-- 3-Dot More Actions Menu -->
+      <div class="nav-more-menu-wrapper" id="nav-more-menu-wrapper">
+        <button id="btn-more-menu" class="btn btn-secondary btn-icon-only" title="More Tools & Actions">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/>
+          </svg>
+        </button>
+
+        <div id="nav-more-dropdown" class="nav-more-dropdown hidden">
+          <div class="nav-dropdown-header">Canvas Tools</div>
+          <button id="btn-auto-layout" class="nav-dropdown-item" title="Auto-arrange canvas blocks">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="8.5" y="14" width="7" height="7" rx="1.5"/></svg>
+            <span>Auto Layout</span>
+          </button>
+          <button id="btn-toggle-files" class="nav-dropdown-item" title="View Workspace .md Files">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            <span>Workspace Files</span>
+          </button>
+          <button id="btn-skills-library" class="nav-dropdown-item" title="Manage Skills Library (Packages, Scripts, References)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v6M9 9h6"/></svg>
+            <span>Skills Library</span>
+          </button>
+          <button id="btn-mcp-server" class="nav-dropdown-item" title="Connect External AI Agents via MCP">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <span>MCP Server (22 Tools)</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
