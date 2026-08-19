@@ -98,7 +98,7 @@
           </button>
           <button id="btn-mcp-server" class="nav-dropdown-item" title="Connect External AI Agents via MCP">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-            <span>MCP Server (22 Tools)</span>
+            <span>MCP Server (25 Tools)</span>
           </button>
           <a href="/docs/" target="_blank" class="nav-dropdown-item" title="Open VitePress Documentation">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -372,7 +372,7 @@
         <div class="modal-title-group">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
           <h2 class="modal-title">Model Context Protocol (MCP) Server</h2>
-          <span class="mcp-status-badge">Active &bull; 22 Tools Available</span>
+          <span class="mcp-status-badge">Active &bull; 25 Tools Available</span>
         </div>
         <button id="btn-close-mcp-modal" class="btn-icon" title="Close">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -392,7 +392,7 @@
           <button class="mcp-tab-btn" data-mcp-tab="antigravity">Antigravity (AGY)</button>
           <button class="mcp-tab-btn" data-mcp-tab="cline">Cline / Windsurf</button>
           <button class="mcp-tab-btn" data-mcp-tab="sse">HTTP / SSE</button>
-          <button class="mcp-tab-btn" data-mcp-tab="tools">Available Tools (22)</button>
+          <button class="mcp-tab-btn" data-mcp-tab="tools">Available Tools (25)</button>
         </div>
 
         <!-- Tab 1: OpenCode -->
@@ -545,7 +545,7 @@
           </div>
         </div>
 
-        <!-- Tab 5: Available Tools -->
+        <!-- Tab 8: Available Tools -->
         <div class="mcp-tab-content hidden" id="mcp-tab-tools">
           <div class="mcp-tools-grid">
             <div class="mcp-tool-category">
@@ -555,6 +555,7 @@
                 <li><code>create_project</code> - Create new workspace</li>
                 <li><code>get_project</code> - Get project nodes & edges</li>
                 <li><code>delete_project</code> - Delete workspace</li>
+                <li><code>sync_workspace</code> - Sync SQLite & disk .md</li>
               </ul>
             </div>
             <div class="mcp-tool-category">
@@ -571,6 +572,7 @@
               <span class="category-title">Routing & Edges</span>
               <ul class="mcp-tool-list">
                 <li><code>create_edge</code> - Wire transition connection</li>
+                <li><code>update_edge</code> - Update edge logic & retries</li>
                 <li><code>delete_edge</code> - Remove connection</li>
                 <li><code>auto_layout_graph</code> - Auto-align DAG layers</li>
               </ul>
@@ -596,8 +598,9 @@
               <span class="category-title">Diagnostics & Export</span>
               <ul class="mcp-tool-list">
                 <li><code>lint_graph</code> - Run graph health linter</li>
-                <li><code>export_workflow</code> - Multi-target transpilation</li>
+                <li><code>list_export_targets</code> - Query supported platforms</li>
                 <li><code>preview_export</code> - Dry-run export preview</li>
+                <li><code>export_workflow</code> - Multi-target transpilation</li>
               </ul>
             </div>
           </div>

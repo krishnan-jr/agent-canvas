@@ -265,6 +265,11 @@ export function getEdgesByProject(projectId) {
   return stmt.all(projectId);
 }
 
+export function getEdgeById(id) {
+  const stmt = db.prepare(`SELECT * FROM edges WHERE id = ?`);
+  return stmt.get(id);
+}
+
 export function getOutgoingEdgesForNode(nodeId) {
   const stmt = db.prepare(`SELECT * FROM edges WHERE source_id = ?`);
   return stmt.all(nodeId);

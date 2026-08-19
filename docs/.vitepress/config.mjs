@@ -83,7 +83,7 @@ export default defineConfig({
         {
           text: 'Model Context Protocol',
           items: [
-            { text: 'Server Architecture & 22 Tools', link: '/mcp/overview' },
+            { text: 'Server Architecture & 25 Tools', link: '/mcp/overview' },
             { text: 'Client Connection Guides', link: '/mcp/clients' }
           ]
         }

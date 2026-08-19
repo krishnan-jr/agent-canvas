@@ -5,7 +5,7 @@
  * 
  * Supports dual transports:
  * 1. STDIO (JSON-RPC 2.0 over process.stdin/stdout)
- * 2. HTTP/SSE (via export handler for Express)
+ * 2. HTTP/SSE (via export handler in server.js)
  */
 
 import readline from 'node:readline';
@@ -24,6 +24,7 @@ import {
   saveNode,
   deleteNode,
   getEdgesByProject,
+  getEdgeById,
   saveEdge,
   deleteEdge,
   getSkillsByProject,
@@ -36,7 +37,14 @@ import {
   WORKSPACE_DIR
 } from './db.js';
 
-import { syncNodeToDisk, removeNodeFromDisk } from './fileSync.js';
+import {
+  syncNodeToDisk,
+  removeNodeFromDisk,
+  syncDiskToDatabase,
+  syncAllToDisk,
+  getProjectDirPath
+} from './fileSync.js';
+
 import { validateAgentSchema, parseAgentYaml } from './validator.js';
 import { transpileProject, SUPPORTED_TARGETS } from './exporters/index.js';
 import { executeWorkflowStream, parseAgentFrontmatter, resumeApprovalSession } from './llmRunner.js';
@@ -51,7 +59,7 @@ const SERVER_INFO = {
 };
 
 // =============================================================================
-// Tool Definitions (22 Comprehensive Autonomous Tools)
+// Tool Definitions (25 Comprehensive Autonomous Tools)
 // =============================================================================
 
 export const MCP_TOOLS = [
@@ -96,6 +104,21 @@ export const MCP_TOOLS = [
         projectId: { type: 'string', description: 'Project ID to delete' }
       },
       required: ['projectId']
+    }
+  },
+  {
+    name: 'sync_workspace',
+    description: 'Triggers bidirectional synchronization between the SQLite database and on-disk mirrored .md markdown agent files in ./workspace/.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'Project ID to sync (default: "project-default")' },
+        direction: {
+          type: 'string',
+          enum: ['from-disk', 'to-disk', 'bidirectional'],
+          description: 'Sync direction: "from-disk" imports external .md edits; "to-disk" flushes SQLite nodes; "bidirectional" reconciles both (default: "bidirectional")'
+        }
+      }
     }
   },
 
@@ -192,6 +215,24 @@ export const MCP_TOOLS = [
         targetHandle: { type: 'string', description: 'Port terminal: "top" | "bottom" | "left" | "right"' }
       },
       required: ['sourceId', 'targetId']
+    }
+  },
+  {
+    name: 'update_edge',
+    description: 'Updates an existing transition connection edge parameters (condition, label, edgeType, maxRetries, port terminals).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        edgeId: { type: 'string', description: 'Unique ID of the edge to update' },
+        projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
+        condition: { type: 'string', description: 'Updated condition ("pass", "fail", "next", "approval", etc.)' },
+        edgeType: { type: 'string', description: 'Updated edge type: "default" | "conditional" | "feedback_loop"' },
+        label: { type: 'string', description: 'Updated visual label on edge' },
+        maxRetries: { type: 'number', description: 'Updated maximum retry loops' },
+        sourceHandle: { type: 'string', description: 'Updated port terminal: "top" | "bottom" | "left" | "right"' },
+        targetHandle: { type: 'string', description: 'Updated port terminal: "top" | "bottom" | "left" | "right"' }
+      },
+      required: ['edgeId']
     }
   },
   {
@@ -328,20 +369,11 @@ export const MCP_TOOLS = [
     }
   },
   {
-    name: 'export_workflow',
-    description: 'Transpiles the multi-agent canvas workflow into provider-native configurations (Claude Code, OpenCode, Cursor, Antigravity, OpenAI Codex, or Universal Raw bundle) and writes to disk.',
+    name: 'list_export_targets',
+    description: 'Lists all supported AI platform transpiler targets (Claude Code, OpenCode, Cursor, Antigravity, OpenAI Codex, Universal Raw) with their master configuration files and routing behaviors.',
     inputSchema: {
       type: 'object',
-      properties: {
-        projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
-        target: { 
-          type: 'string', 
-          enum: ['claude-code', 'opencode', 'cursor', 'antigravity', 'codex', 'universal'],
-          description: 'Target export platform'
-        },
-        outputDir: { type: 'string', description: 'Optional custom export directory' }
-      },
-      required: ['target']
+      properties: {}
     }
   },
   {
@@ -359,6 +391,23 @@ export const MCP_TOOLS = [
       },
       required: ['target']
     }
+  },
+  {
+    name: 'export_workflow',
+    description: 'Transpiles the multi-agent canvas workflow into provider-native configurations (Claude Code, OpenCode, Cursor, Antigravity, OpenAI Codex, or Universal Raw bundle) and writes to disk.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
+        target: { 
+          type: 'string', 
+          enum: ['claude-code', 'opencode', 'cursor', 'antigravity', 'codex', 'universal'],
+          description: 'Target export platform'
+        },
+        outputDir: { type: 'string', description: 'Optional custom export directory' }
+      },
+      required: ['target']
+    }
   }
 ];
 
@@ -370,7 +419,7 @@ export const MCP_RESOURCES = [
   {
     uri: 'canvas://projects',
     name: 'Canvas Projects List',
-    description: 'List of all agent canvas workspace projects',
+    description: 'List of all agent canvas workspace projects with metadata',
     mimeType: 'application/json'
   },
   {
@@ -378,6 +427,44 @@ export const MCP_RESOURCES = [
     name: 'Canvas Skills Catalog',
     description: 'All registered skill packages and their SKILL.md contents',
     mimeType: 'application/json'
+  },
+  {
+    uri: 'canvas://targets',
+    name: 'Supported Export Targets',
+    description: 'Registry of all supported multi-target AI harnesses and file formats',
+    mimeType: 'application/json'
+  }
+];
+
+// =============================================================================
+// Prompt Definitions
+// =============================================================================
+
+export const MCP_PROMPTS = [
+  {
+    name: 'generate_multi_agent_pipeline',
+    description: 'Designs an autonomous multi-agent pipeline with Orchestrator, Assistant, Evaluator, and Router nodes for a given objective.',
+    arguments: [
+      { name: 'projectId', description: 'Target project ID (default: "project-default")', required: false },
+      { name: 'objective', description: 'The high-level goal or workflow to build', required: true },
+      { name: 'domain', description: 'Domain focus (e.g. software development, security auditing, customer support, research)', required: false }
+    ]
+  },
+  {
+    name: 'audit_project_readiness',
+    description: 'Runs linter diagnostics and evaluates multi-target export readiness (Claude Code, Cursor, OpenCode, Antigravity).',
+    arguments: [
+      { name: 'projectId', description: 'Project ID to audit (default: "project-default")', required: false },
+      { name: 'targetPlatform', description: 'Target AI harness (claude-code, opencode, cursor, antigravity, codex, universal)', required: false }
+    ]
+  },
+  {
+    name: 'execute_and_refine_workflow',
+    description: 'Runs the multi-agent DAG simulation, inspects verdicts, and generates edge refinement recommendations for rejected steps.',
+    arguments: [
+      { name: 'projectId', description: 'Project ID to execute (default: "project-default")', required: false },
+      { name: 'maxSteps', description: 'Maximum step limit (default: 25)', required: false }
+    ]
   }
 ];
 
@@ -429,6 +516,27 @@ export async function executeToolCall(toolName, args = {}) {
       }
       deleteProject(args.projectId);
       return { success: true, message: `Project ${args.projectId} deleted` };
+    }
+
+    case 'sync_workspace': {
+      const direction = args.direction || 'bidirectional';
+      let resultMessage = '';
+
+      if (direction === 'from-disk' || direction === 'bidirectional') {
+        const diskCount = syncDiskToDatabase(projectId);
+        resultMessage += `Imported ${diskCount} files from disk. `;
+      }
+      if (direction === 'to-disk' || direction === 'bidirectional') {
+        syncAllToDisk();
+        resultMessage += `Flushed SQLite database nodes to disk.`;
+      }
+
+      return {
+        success: true,
+        projectId,
+        direction,
+        message: resultMessage.trim()
+      };
     }
 
     // --- Agents ---
@@ -563,6 +671,26 @@ export async function executeToolCall(toolName, args = {}) {
       }, projectId);
 
       return { success: true, message: 'Edge created successfully', edge };
+    }
+
+    case 'update_edge': {
+      const existing = getEdgeById(args.edgeId);
+      if (!existing) throw new Error(`Edge '${args.edgeId}' not found.`);
+
+      const updatedEdge = saveEdge({
+        id: existing.id,
+        project_id: projectId,
+        source_id: existing.source_id,
+        target_id: existing.target_id,
+        source_handle: args.sourceHandle !== undefined ? args.sourceHandle : existing.source_handle,
+        target_handle: args.targetHandle !== undefined ? args.targetHandle : existing.target_handle,
+        edge_type: args.edgeType !== undefined ? args.edgeType : existing.edge_type,
+        condition: args.condition !== undefined ? args.condition : existing.condition,
+        max_retries: args.maxRetries !== undefined ? args.maxRetries : existing.max_retries,
+        label: args.label !== undefined ? args.label : existing.label
+      }, projectId);
+
+      return { success: true, message: `Edge '${args.edgeId}' updated successfully`, edge: updatedEdge };
     }
 
     case 'delete_edge': {
@@ -825,6 +953,78 @@ export async function executeToolCall(toolName, args = {}) {
       return { success: true, diagnostics };
     }
 
+    case 'list_export_targets': {
+      return {
+        success: true,
+        targets: [
+          {
+            id: 'claude-code',
+            name: 'Claude Code',
+            masterFile: 'CLAUDE.md',
+            agentDir: '.claude/commands/',
+            description: 'Transpiles tools to allowed-tools and configures slash command orchestration.'
+          },
+          {
+            id: 'opencode',
+            name: 'OpenCode',
+            masterFile: 'AGENTS.md',
+            agentDir: '.opencode/agents/',
+            description: 'Compiles transition routing into native Mermaid DAG diagrams with sanitized frontmatter.'
+          },
+          {
+            id: 'cursor',
+            name: 'Cursor IDE',
+            masterFile: '.cursorrules',
+            agentDir: '.cursor/rules/',
+            description: 'Generates .mdc contextual rules with glob triggers and descriptions.'
+          },
+          {
+            id: 'antigravity',
+            name: 'Google Antigravity (AGY)',
+            masterFile: 'GEMINI.md',
+            agentDir: '.gemini/antigravity/skills/',
+            description: 'Compiles transitions into invoke_subagent delegation directives and decision gates.'
+          },
+          {
+            id: 'codex',
+            name: 'OpenAI Codex / Assistants v2',
+            masterFile: 'codex.json',
+            agentDir: 'instructions/',
+            description: 'Transpiles tools to OpenAI tool schemas with model and temperature bindings.'
+          },
+          {
+            id: 'universal',
+            name: 'Universal Raw Vault',
+            masterFile: 'workflow.js',
+            agentDir: './',
+            description: 'Preserves raw markdown vaults with a standalone Node.js DAG execution runner.'
+          }
+        ]
+      };
+    }
+
+    case 'preview_export': {
+      const project = getProjectById(projectId) || { id: projectId, name: 'Default Project', slug: 'default' };
+      const nodes = getNodesByProject(projectId);
+      const edges = getEdgesByProject(projectId);
+      const allSkills = getSkillsByProject(projectId);
+
+      const exportFiles = transpileProject(args.target, project, nodes, edges, allSkills);
+      const fileList = Array.isArray(exportFiles) ? exportFiles : (exportFiles.files || []);
+
+      return {
+        success: true,
+        target: args.target,
+        totalFiles: fileList.length,
+        tree: fileList.map(f => f.path),
+        filesPreview: fileList.map(f => ({
+          path: f.path,
+          language: f.language,
+          contentSnippet: f.content.slice(0, 300) + (f.content.length > 300 ? '\n...' : '')
+        }))
+      };
+    }
+
     case 'export_workflow': {
       const project = getProjectById(projectId) || { id: projectId, name: 'Default Project', slug: 'default' };
       const nodes = getNodesByProject(projectId);
@@ -856,28 +1056,6 @@ export async function executeToolCall(toolName, args = {}) {
       };
     }
 
-    case 'preview_export': {
-      const project = getProjectById(projectId) || { id: projectId, name: 'Default Project', slug: 'default' };
-      const nodes = getNodesByProject(projectId);
-      const edges = getEdgesByProject(projectId);
-      const allSkills = getSkillsByProject(projectId);
-
-      const exportFiles = transpileProject(args.target, project, nodes, edges, allSkills);
-      const fileList = Array.isArray(exportFiles) ? exportFiles : (exportFiles.files || []);
-
-      return {
-        success: true,
-        target: args.target,
-        totalFiles: fileList.length,
-        tree: fileList.map(f => f.path),
-        filesPreview: fileList.map(f => ({
-          path: f.path,
-          language: f.language,
-          contentSnippet: f.content.slice(0, 300) + (f.content.length > 300 ? '\n...' : '')
-        }))
-      };
-    }
-
     default:
       throw new Error(`Unknown tool '${toolName}'`);
   }
@@ -901,6 +1079,19 @@ export async function readResourceUri(uri) {
     };
   }
 
+  if (uri === 'canvas://targets') {
+    const targets = await executeToolCall('list_export_targets');
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(targets, null, 2)
+        }
+      ]
+    };
+  }
+
   if (uri === 'canvas://skills') {
     const skills = getSkillsByProject('project-default');
     return {
@@ -909,6 +1100,117 @@ export async function readResourceUri(uri) {
           uri,
           mimeType: 'application/json',
           text: JSON.stringify(skills, null, 2)
+        }
+      ]
+    };
+  }
+
+  // Dynamic parameterized URIs
+  // 1. canvas://projects/:projectId
+  const projectMatch = uri.match(/^canvas:\/\/projects\/([^/]+)$/);
+  if (projectMatch) {
+    const pId = projectMatch[1];
+    const project = getProjectById(pId);
+    if (!project) throw new Error(`Project '${pId}' not found.`);
+    const nodes = getNodesByProject(pId);
+    const edges = getEdgesByProject(pId);
+    const skills = getSkillsByProject(pId);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify({ project, stats: { nodeCount: nodes.length, edgeCount: edges.length, skillCount: skills.length }, nodes, edges, skills }, null, 2)
+        }
+      ]
+    };
+  }
+
+  // 2. canvas://projects/:projectId/nodes
+  const nodesMatch = uri.match(/^canvas:\/\/projects\/([^/]+)\/nodes$/);
+  if (nodesMatch) {
+    const pId = nodesMatch[1];
+    const nodes = getNodesByProject(pId);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(nodes, null, 2)
+        }
+      ]
+    };
+  }
+
+  // 3. canvas://projects/:projectId/nodes/:nodeId
+  const nodeMatch = uri.match(/^canvas:\/\/projects\/([^/]+)\/nodes\/([^/]+)$/);
+  if (nodeMatch) {
+    const pId = nodeMatch[1];
+    const nId = nodeMatch[2];
+    const node = getNodeById(nId);
+    if (!node) throw new Error(`Node '${nId}' not found in project '${pId}'.`);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text: node.content
+        }
+      ]
+    };
+  }
+
+  // 4. canvas://projects/:projectId/skills
+  const skillsMatch = uri.match(/^canvas:\/\/projects\/([^/]+)\/skills$/);
+  if (skillsMatch) {
+    const pId = skillsMatch[1];
+    const skills = getSkillsByProject(pId);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(skills, null, 2)
+        }
+      ]
+    };
+  }
+
+  // 5. canvas://projects/:projectId/skills/:skillName
+  const skillMatch = uri.match(/^canvas:\/\/projects\/([^/]+)\/skills\/([^/]+)$/);
+  if (skillMatch) {
+    const pId = skillMatch[1];
+    const sName = skillMatch[2];
+    const skill = getSkillByName(pId, sName) || getSkillById(sName);
+    if (!skill) throw new Error(`Skill '${sName}' not found in project '${pId}'.`);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(skill, null, 2)
+        }
+      ]
+    };
+  }
+
+  // 6. canvas://projects/:projectId/export/:target
+  const exportMatch = uri.match(/^canvas:\/\/projects\/([^/]+)\/export\/([^/]+)$/);
+  if (exportMatch) {
+    const pId = exportMatch[1];
+    const target = exportMatch[2];
+    const project = getProjectById(pId);
+    if (!project) throw new Error(`Project '${pId}' not found.`);
+    const nodes = getNodesByProject(pId);
+    const edges = getEdgesByProject(pId);
+    const skills = getSkillsByProject(pId);
+    const result = transpileProject(target, project, nodes, edges, skills);
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(result, null, 2)
         }
       ]
     };
@@ -1044,17 +1346,87 @@ export async function handleMcpMessage(request) {
           jsonrpc: '2.0',
           id,
           result: {
-            prompts: [
-              {
-                name: 'generate_multi_agent_pipeline',
-                description: 'Creates an autonomous multi-agent pipeline with Orchestrator, Assistant, Critic, and Router nodes.'
-              },
-              {
-                name: 'audit_project_readiness',
-                description: 'Runs linter diagnostics and evaluates multi-target export readiness.'
-              }
-            ]
+            prompts: MCP_PROMPTS
           }
+        };
+      }
+
+      case 'prompts/get': {
+        if (!params || !params.name) {
+          return {
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32602, message: 'Missing prompt name in params' }
+          };
+        }
+
+        const args = params.arguments || {};
+        const projectId = args.projectId || 'project-default';
+
+        if (params.name === 'generate_multi_agent_pipeline') {
+          const objective = args.objective || 'Build an autonomous multi-agent system';
+          const domain = args.domain || 'Software Engineering';
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              description: `Generate multi-agent pipeline for "${objective}" in ${domain}`,
+              messages: [
+                {
+                  role: 'user',
+                  content: {
+                    type: 'text',
+                    text: `Please design and construct an autonomous multi-agent workflow in project '${projectId}' to achieve the following objective:\n\nObjective: ${objective}\nDomain: ${domain}\n\nSteps to perform using agent-canvas MCP tools:\n1. Call 'list_agents' or 'get_project' to inspect existing nodes in project '${projectId}'.\n2. Call 'create_agent' for each agent role (e.g. Orchestrator supervisor, Worker specialist, Evaluator guardrail, Router decision node).\n3. Wire transition paths using 'create_edge' with appropriate conditions ('pass', 'fail', 'next') and retry loops.\n4. Call 'auto_layout_graph' to arrange nodes cleanly.\n5. Call 'lint_graph' to assert that all schema rules and connection paths are valid.`
+                  }
+                }
+              ]
+            }
+          };
+        }
+
+        if (params.name === 'audit_project_readiness') {
+          const target = args.targetPlatform || 'claude-code';
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              description: `Audit project '${projectId}' readiness for target '${target}'`,
+              messages: [
+                {
+                  role: 'user',
+                  content: {
+                    type: 'text',
+                    text: `Please audit project '${projectId}' for deployment readiness:\n\n1. Call 'lint_graph' for project '${projectId}' to check YAML syntax, missing skills, duplicate keys, and orphan nodes.\n2. Call 'preview_export' with target='${target}' to inspect generated provider-native configurations.\n3. Report a summary of validation status, potential edge loop warnings, and export recommendations.`
+                  }
+                }
+              ]
+            }
+          };
+        }
+
+        if (params.name === 'execute_and_refine_workflow') {
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              description: `Execute and refine DAG in project '${projectId}'`,
+              messages: [
+                {
+                  role: 'user',
+                  content: {
+                    type: 'text',
+                    text: `Please run and analyze the execution flow for project '${projectId}':\n\n1. Call 'run_workflow' to execute the multi-agent graph.\n2. Inspect stage outputs, token usage, and verdicts.\n3. If any stage failed or was rejected, review the agent instructions or refine transition routing using 'update_edge' or 'update_agent'.`
+                  }
+                }
+              ]
+            }
+          };
+        }
+
+        return {
+          jsonrpc: '2.0',
+          id,
+          error: { code: -32602, message: `Unknown prompt '${params.name}'` }
         };
       }
 
@@ -1100,16 +1472,16 @@ function startStdioServer() {
         JSON.stringify({
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32700, message: 'Parse error: invalid JSON' }
+          error: { code: -32700, message: `Parse error: ${e.message}` }
         }) + '\n'
       );
     }
   });
 
-  process.stderr.write(`[MCP Server] Agent Canvas Orchestrator MCP Server listening on STDIO (v${SERVER_INFO.version})\n`);
+  process.stderr.write('[MCP Server] Agent Canvas Orchestrator STDIO Server active (25 tools)\n');
 }
 
 // If executed directly from CLI (e.g. `node src/mcpServer.js`), start STDIO
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && process.argv[1].endsWith('mcpServer.js')) {
   startStdioServer();
 }

@@ -3,7 +3,7 @@
 Connect your favorite AI coding assistant directly to **Agent Canvas** using the configurations below.
 
 > [!TIP]
-> **Dynamic Path Resolution**: When running Agent Canvas, click **MCP Server (22 Tools)** in the top navigation **•••** menu to view and copy pre-filled configurations with the exact absolute path dynamically resolved for your current machine.
+> **Dynamic Path Resolution**: When running Agent Canvas, click **MCP Server (25 Tools)** in the top navigation **•••** menu to view and copy pre-filled configurations with the exact absolute path dynamically resolved for your current machine.
 
 ---
 
