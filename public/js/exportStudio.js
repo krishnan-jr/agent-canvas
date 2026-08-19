@@ -452,19 +452,22 @@ export class ExportStudio {
     const projSlug = activeProject ? (activeProject.slug || activeProject.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')) : 'project';
     const targetDirDefault = `./workspace/${projSlug}/export_${this.currentTarget.replace(/-/g, '_')}`;
 
-    const promptRes = await dialog.prompt({
+    const promptRes = await dialog.browseDirectory({
       title: 'Export to Workspace Disk',
-      message: `Specify destination directory path on disk to write ${this.currentFiles.length} generated files:`,
-      defaultValue: targetDirDefault,
-      placeholder: '/path/to/target/directory',
-      confirmText: 'Export Files'
+      message: `Browse or select destination folder on disk to write ${this.currentFiles.length} generated files:`,
+      initialPath: targetDirDefault,
+      confirmText: 'Export Files',
+      projectBookmark: {
+        name: `Project (${projSlug})`,
+        path: `./workspace/${projSlug}`
+      }
     });
 
-    if (promptRes.action !== 'save' || !promptRes.value) {
+    if (promptRes.action !== 'confirm' || !promptRes.path) {
       return;
     }
 
-    const chosenPath = promptRes.value.trim();
+    const chosenPath = promptRes.path.trim();
     const projectId = this.app.currentProjectId;
 
     try {

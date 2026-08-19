@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   getAllProjects,
@@ -506,6 +507,133 @@ Detailed runbook and instructions for this skill.
         'Content-Length': zipBuffer.length
       });
       return res.end(zipBuffer);
+    }
+
+    // GET /api/filesystem/directories (Directory browser for disk export and workspace navigation)
+    if (pathname === '/api/filesystem/directories' && method === 'GET') {
+      const targetQuery = parsedUrl.searchParams.get('path') || './workspace';
+      let resolvedPath;
+      if (targetQuery.startsWith('~')) {
+        resolvedPath = path.join(os.homedir(), targetQuery.slice(1));
+      } else if (path.isAbsolute(targetQuery)) {
+        resolvedPath = path.resolve(targetQuery);
+      } else {
+        resolvedPath = path.resolve(process.cwd(), targetQuery);
+      }
+
+      // If resolvedPath doesn't exist, find closest existing ancestor directory
+      let checkPath = resolvedPath;
+      while (!fs.existsSync(checkPath)) {
+        const parent = path.dirname(checkPath);
+        if (parent === checkPath) break;
+        checkPath = parent;
+      }
+      resolvedPath = checkPath;
+
+      try {
+        if (fs.existsSync(resolvedPath)) {
+          const stats = fs.statSync(resolvedPath);
+          if (!stats.isDirectory()) {
+            resolvedPath = path.dirname(resolvedPath);
+          }
+        } else {
+          resolvedPath = process.cwd();
+        }
+
+        const entries = fs.readdirSync(resolvedPath, { withFileTypes: true });
+        const directories = entries
+          .filter(e => e.isDirectory() && !e.name.startsWith('.git') && e.name !== 'node_modules')
+          .map(e => {
+            const subPath = path.join(resolvedPath, e.name);
+            let hasChildren = false;
+            try {
+              const subEntries = fs.readdirSync(subPath, { withFileTypes: true });
+              hasChildren = subEntries.some(se => se.isDirectory() && !se.name.startsWith('.git') && se.name !== 'node_modules');
+            } catch {}
+            return {
+              name: e.name,
+              path: subPath,
+              hasChildren
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        const parentPath = path.dirname(resolvedPath) !== resolvedPath ? path.dirname(resolvedPath) : null;
+        
+        // Relative format for clean UI display
+        const cwd = process.cwd();
+        let displayPath = resolvedPath;
+        if (resolvedPath === cwd) {
+          displayPath = './';
+        } else if (resolvedPath.startsWith(cwd + path.sep)) {
+          displayPath = './' + path.relative(cwd, resolvedPath);
+        } else if (resolvedPath === os.homedir()) {
+          displayPath = '~';
+        } else if (resolvedPath.startsWith(os.homedir() + path.sep)) {
+          displayPath = '~/' + path.relative(os.homedir(), resolvedPath);
+        }
+
+        // Build breadcrumbs trail
+        const breadcrumbs = [];
+        let currentSegPath = resolvedPath;
+        const root = path.parse(resolvedPath).root;
+        while (currentSegPath && currentSegPath !== root) {
+          const baseName = path.basename(currentSegPath);
+          breadcrumbs.unshift({ name: baseName, path: currentSegPath });
+          currentSegPath = path.dirname(currentSegPath);
+        }
+        if (root) breadcrumbs.unshift({ name: root, path: root });
+
+        return sendJson(res, 200, {
+          success: true,
+          currentPath: displayPath,
+          absolutePath: resolvedPath,
+          parentPath,
+          breadcrumbs,
+          directories,
+          bookmarks: [
+            { name: 'Workspace', path: path.resolve(cwd, 'workspace'), display: './workspace' },
+            { name: 'Project Root', path: cwd, display: './' },
+            { name: 'Home Directory', path: os.homedir(), display: '~' }
+          ]
+        });
+      } catch (err) {
+        return sendJson(res, 500, { success: false, error: err.message });
+      }
+    }
+
+    // POST /api/filesystem/mkdir (Create directory on disk)
+    if (pathname === '/api/filesystem/mkdir' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const parentDir = body.parentPath || './workspace';
+      const folderName = (body.folderName || '').trim();
+      if (!folderName) {
+        return sendJson(res, 400, { success: false, error: 'Folder name is required' });
+      }
+
+      let resolvedParent;
+      if (parentDir.startsWith('~')) {
+        resolvedParent = path.join(os.homedir(), parentDir.slice(1));
+      } else if (path.isAbsolute(parentDir)) {
+        resolvedParent = path.resolve(parentDir);
+      } else {
+        resolvedParent = path.resolve(process.cwd(), parentDir);
+      }
+
+      const targetDir = path.join(resolvedParent, folderName);
+      try {
+        fs.mkdirSync(targetDir, { recursive: true });
+        const cwd = process.cwd();
+        let displayPath = targetDir;
+        if (targetDir === cwd) {
+          displayPath = './';
+        } else if (targetDir.startsWith(cwd + path.sep)) {
+          displayPath = './' + path.relative(cwd, targetDir);
+        }
+        return sendJson(res, 200, { success: true, createdPath: targetDir, displayPath });
+      } catch (err) {
+        return sendJson(res, 500, { success: false, error: err.message });
+      }
     }
 
     // POST /api/validate (Validates markdown frontmatter schema)
