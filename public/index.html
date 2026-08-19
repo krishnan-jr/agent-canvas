@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Canvas Orchestrator (.md)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="canvas-app">
+
+  <!-- Top Navigation Header -->
+  <header class="top-nav">
+    <div class="nav-left">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"></path>
+        </svg>
+        <span class="brand-title">Agent Canvas</span>
+      </div>
+
+      <div class="project-breadcrumb" id="btn-project-selector" title="Switch or manage projects">
+        <span class="breadcrumb-slash">/</span>
+        <span class="project-active-name" id="header-project-name">Loading...</span>
+        <svg class="breadcrumb-arrow" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+
+      <div class="canvas-stats">
+        <span id="stat-nodes">2 blocks</span>
+        <span class="stat-sep">•</span>
+        <span id="stat-edges">1 connection</span>
+        <span class="stat-sep">•</span>
+        <span id="stat-tokens">~340 tokens</span>
+      </div>
+
+      <div class="health-status-wrapper">
+        <div class="graph-health-pill healthy" id="graph-health-pill" title="Graph topology and semantic integrity status">
+          <span class="health-dot"></span>
+          <span class="health-label" id="graph-health-label">Graph Healthy</span>
+        </div>
+
+        <!-- Graph Diagnostics Popover -->
+        <div id="graph-diagnostics-popover" class="graph-diagnostics-popover hidden">
+          <div class="diagnostics-header">
+            <span class="diagnostics-title">Graph Diagnostics</span>
+            <button type="button" class="btn-icon btn-xs" id="btn-close-diagnostics">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="diagnostics-list" id="diagnostics-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <button id="btn-add-block" class="btn btn-primary" title="Add new Markdown Agent Block">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        New .md Block
+      </button>
+
+      <button id="btn-run-workflow" class="btn btn-accent" title="Run Agent Workflow Simulation">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run Workflow
+      </button>
+
+      <button id="btn-auto-layout" class="btn btn-secondary" title="Auto-arrange canvas blocks">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="8.5" y="14" width="7" height="7" rx="1.5"/></svg>
+        Layout
+      </button>
+
+      <div class="divider"></div>
+
+      <button id="btn-toggle-files" class="btn btn-secondary" title="View Workspace .md Files">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        Files
+      </button>
+
+      <button id="btn-skills-library" class="btn btn-secondary" title="Manage Skills Library (Packages, Scripts, References)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v6M9 9h6"/></svg>
+        Skills
+      </button>
+
+      <button id="btn-export-bundle" class="btn btn-secondary" title="Export all .md files as JSON or ZIP">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport Area -->
+  <main class="canvas-viewport" id="viewport">
+    
+    <!-- Canvas Transform Layer (Pans & Zooms) -->
+    <div class="canvas-world" id="canvas-world">
+      
+      <!-- Dot grid background canvas/pattern -->
+      <div class="canvas-grid" id="canvas-grid"></div>
+
+      <!-- SVG Layer for Bezier Connections -->
+      <svg class="canvas-connections" id="connections-svg">
+        <defs>
+          <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#52525e" />
+          </marker>
+          <marker id="arrow-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+          </marker>
+          <marker id="arrow-fail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
+          </marker>
+          <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8" />
+          </marker>
+          <marker id="arrow-active-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+          </marker>
+          <marker id="arrow-active-fail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
+          </marker>
+          <marker id="arrow-glow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+          </marker>
+          <!-- Gradient for active pulse -->
+          <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3" />
+            <stop offset="50%" stop-color="#60a5fa" stop-opacity="1" />
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.3" />
+          </linearGradient>
+        </defs>
+
+        <!-- Paths rendered dynamically -->
+        <g id="edges-group"></g>
+        <g id="edge-labels-group"></g>
+        <g id="temp-edge-group"></g>
+      </svg>
+
+      <!-- HTML Nodes Container -->
+      <div class="canvas-nodes" id="nodes-container"></div>
+    </div>
+
+    <!-- Floating Zoom / Navigation Controls -->
+    <div class="floating-controls">
+      <button id="btn-zoom-in" class="ctrl-btn" title="Zoom In">+</button>
+      <div id="zoom-level-display" class="zoom-display">100%</div>
+      <button id="btn-zoom-out" class="ctrl-btn" title="Zoom Out">−</button>
+      <div class="ctrl-sep"></div>
+      <button id="btn-zoom-fit" class="ctrl-btn" title="Fit Canvas to View">⛶</button>
+      <button id="btn-zoom-reset" class="ctrl-btn" title="Reset View (100%)">1:1</button>
+    </div>
+
+    <!-- Mini Help Hint -->
+    <div class="canvas-hint">
+      <span>Drag canvas or Space+Drag to pan • Wheel to zoom • Drag port handles (●) to connect</span>
+    </div>
+  </main>
+
+  <!-- Sidebar: Workspace Markdown Files Explorer -->
+  <aside id="file-sidebar" class="sidebar hidden">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Workspace Files (.md)
+      </div>
+      <button id="btn-close-sidebar" class="btn-icon">✕</button>
+    </div>
+    <div class="sidebar-sub">
+      Backed by <code>node:sqlite</code> & synced to <code>./workspace/</code>
+    </div>
+    <div class="file-list" id="workspace-file-list"></div>
+    <div class="sidebar-footer">
+      <button id="btn-sync-workspace" class="btn btn-secondary btn-block">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Re-sync Disk & Database
+      </button>
+    </div>
+  </aside>
+
+  <!-- Bottom Drawer: Agent Orchestration Simulator -->
+  <div id="execution-drawer" class="execution-drawer hidden">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <span class="pulse-dot"></span>
+        Agent Execution Pipeline
+      </div>
+      <div class="drawer-actions">
+        <span id="exec-status-text" class="exec-status">Idle</span>
+        <button id="btn-close-drawer" class="btn-icon">✕</button>
+      </div>
+    </div>
+    <div class="drawer-body" id="execution-logs"></div>
+  </div>
+
+  <!-- Markdown Deep Editor Modal -->
+  <div id="editor-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <svg class="file-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#a5b4fc" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <input type="text" id="modal-filename" class="modal-filename-input" placeholder="agent-name.md">
+          <div id="editor-validation-status" class="validation-status-pill valid">
+            <span class="status-dot"></span>
+            <span id="validation-status-text">Valid Universal Schema</span>
+          </div>
+        </div>
+        <div class="modal-header-actions">
+          <button id="btn-modal-save" class="btn btn-primary">Save Changes</button>
+          <button id="btn-modal-close" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+
+      <!-- Quick Frontmatter Field Toolbar -->
+      <div class="editor-quick-toolbar">
+        <span class="toolbar-label">Insert Field:</span>
+        <div class="toolbar-chips" id="editor-field-chips">
+          <button type="button" class="field-chip" data-field="role">+ role</button>
+          <button type="button" class="field-chip" data-field="description">+ description</button>
+          <button type="button" class="field-chip" data-field="skills">+ skills</button>
+          <button type="button" class="field-chip" data-field="tools">+ tools</button>
+          <button type="button" class="field-chip" data-field="routes">+ routes</button>
+          <button type="button" class="field-chip" data-field="globs">+ globs</button>
+          <button type="button" class="field-chip" data-field="model">+ model</button>
+          <button type="button" class="field-chip" data-field="temperature">+ temperature</button>
+        </div>
+
+        <div class="editor-skills-picker-wrapper" id="editor-skills-picker-wrapper">
+          <button type="button" class="btn btn-secondary btn-xs" id="btn-toggle-editor-skills-picker" title="Link or unlink modular skills">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span id="editor-skills-picker-label">Link Skills (0)</span>
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="editor-skills-dropdown hidden" id="editor-skills-dropdown">
+            <div class="skills-dropdown-header">Select Skills for this Agent</div>
+            <div class="skills-dropdown-list" id="editor-skills-dropdown-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-body-split">
+        <div class="modal-editor-pane">
+          <div class="pane-header">
+            <span>Markdown & YAML Frontmatter</span>
+            <span id="editor-line-indicator" class="pane-sub-info">Line 1</span>
+          </div>
+          <textarea id="modal-editor-textarea" class="modal-textarea" spellcheck="false"></textarea>
+          <div id="editor-validation-banner" class="validation-banner hidden"></div>
+        </div>
+        <div class="modal-preview-pane">
+          <div class="pane-header">Live Preview & Frontmatter Summary</div>
+          <div id="modal-preview-content" class="markdown-body modal-preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="/js/dialog.js"></script>
+  <script type="module" src="/js/validator.js"></script>
+  <script type="module" src="/js/markdown.js"></script>
+  <script type="module" src="/js/projects.js"></script>
+  <script type="module" src="/js/canvas.js"></script>
+  <script type="module" src="/js/orchestrator.js"></script>
+  <script type="module" src="/js/skillsManager.js"></script>
+  <script type="module" src="/js/exportStudio.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
