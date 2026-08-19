@@ -75,7 +75,7 @@ function parseJsonBody(req) {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 5 * 1024 * 1024) {
+      if (body.length > 25 * 1024 * 1024) {
         reject(new Error('Body too large'));
       }
     });
@@ -511,6 +511,22 @@ Detailed runbook and instructions for this skill.
       } catch (err) {
         console.error('Failed to generate ZIP export:', err);
         return sendJson(res, 500, { error: 'Failed to generate ZIP export: ' + err.message });
+      }
+    }
+
+    // POST /api/save-screenshot
+    if (pathname === '/api/save-screenshot' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const relPath = body.filename || 'docs/images/screenshot.png';
+        const base64Data = (body.dataUrl || '').replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const targetPath = path.resolve(process.cwd(), relPath);
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        fs.writeFileSync(targetPath, buffer);
+        return sendJson(res, 200, { success: true, path: targetPath, size: buffer.length });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
       }
     }
 
