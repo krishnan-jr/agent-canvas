@@ -1119,6 +1119,11 @@ class App {
       const data = await res.json();
       listElem.innerHTML = '';
 
+      if (!data.success) {
+        listElem.innerHTML = `<div style="color:#f87171; padding:10px;">Failed to load files: ${data.error || 'Unknown error'}</div>`;
+        return;
+      }
+
       if (!data.files || data.files.length === 0) {
         listElem.innerHTML = '<div style="color:#71717a; padding:10px;">No .md files found in this project</div>';
         return;
@@ -1127,9 +1132,10 @@ class App {
       for (const file of data.files) {
         const item = document.createElement('div');
         item.className = 'file-item';
+        const isJs = file.filename.endsWith('.js');
         item.innerHTML = `
           <div class="file-info">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#a1a1aa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${isJs ? '#f59e0b' : '#a1a1aa'}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <div>
               <div class="file-name">${file.filename}</div>
               <div class="file-meta">${file.size} bytes • ~${estimateTokens(file.content)} tokens</div>
@@ -1141,12 +1147,15 @@ class App {
           if (matched) {
             this.canvas.selectNode(matched.id);
             this.openEditorModal(matched);
+          } else if (isJs) {
+            dialog.alert(`Execution Runner (${file.filename})`, `<pre style="max-height:350px; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12px; background:#141416; padding:12px; border-radius:6px; border:1px solid #2d2d35; color:#cbd5e1;">${file.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
           }
         });
         listElem.appendChild(item);
       }
     } catch (err) {
       console.error('Failed to load workspace files:', err);
+      listElem.innerHTML = `<div style="color:#f87171; padding:10px;">Error: ${err.message}</div>`;
     }
   }
 

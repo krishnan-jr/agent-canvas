@@ -32,6 +32,7 @@ import {
   removeNodeFromDisk,
   syncAllToDisk,
   WORKSPACE_DIR,
+  getProjectDirPath,
   generateWorkflowScript,
   syncDiskToDatabase
 } from './fileSync.js';
@@ -225,6 +226,15 @@ const server = http.createServer(async (req, res) => {
       if (!project) return sendJson(res, 404, { success: false, error: 'Project not found' });
 
       const dir = getProjectDirPath(project);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const nodes = getNodesByProject(projectId);
+      for (const node of nodes) {
+        syncNodeToDisk(node);
+      }
+      generateWorkflowScript(projectId);
+
       const files = fs.readdirSync(dir)
         .filter(f => f.endsWith('.md') || f === 'workflow.js')
         .map(f => {
