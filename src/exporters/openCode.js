@@ -1,6 +1,7 @@
 /**
  * OpenCode Exporter Transpiler
- * Produces AGENTS.md coordination protocol, .opencode/agents/<agent>.md specs, and .opencode/skills/<skill>/ packages.
+ * Produces AGENTS.md coordination protocol, .opencode/agents/<agent>.md specs,
+ * .opencode/skills/<skill>/ packages, and opencode.json config with MCP & instruction bindings.
  */
 
 import { parseAgentYaml } from '../validator.js';
@@ -9,22 +10,38 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
   const files = [];
   const projectName = project ? project.name : 'OpenCode Agent Workflow';
 
-  // 1. Generate AGENTS.md
+  // Role to color mapping for OpenCode UI
+  const roleColors = {
+    orchestrator: '#38bdf8',
+    evaluator: '#10b981',
+    researcher: '#818cf8',
+    coder: '#a855f7',
+    router: '#f59e0b',
+    tool: '#71717a',
+    assistant: '#64748b'
+  };
+
+  // 1. Generate AGENTS.md with OpenCode lazy-loading @references and Mermaid DAG
   let agentsMd = `# ${projectName} - OpenCode Multi-Agent Protocol\n\n`;
   agentsMd += `This project defines an autonomous multi-agent system configured for OpenCode Interpreter.\n\n`;
+
+  agentsMd += `## External Agent References & Lazy Loading\n`;
+  agentsMd += `CRITICAL: When delegating tasks to specialized agents or referencing skills, use the Read or Task tool on demand.\n\n`;
 
   agentsMd += `## Registered Agents\n\n`;
   for (const node of nodes) {
     const { frontmatter } = parseAgentYaml(node.content || '');
-    const name = node.filename || node.title || 'agent';
-    const role = frontmatter.role || 'assistant';
+    const baseName = (node.filename || node.title || 'agent').replace(/\.md$/, '');
+    const role = (frontmatter.role || 'assistant').toLowerCase();
+    const mode = role === 'orchestrator' ? 'primary' : 'subagent';
     const tools = (frontmatter.tools || []).join(', ') || 'standard';
 
-    agentsMd += `### \`${name}\`\n`;
+    agentsMd += `### \`${baseName}\` (@.opencode/agents/${baseName}.md)\n`;
+    agentsMd += `- **Mode**: \`${mode}\`\n`;
     agentsMd += `- **Role**: \`${role}\`\n`;
-    agentsMd += `- **Tools**: \`${tools}\`\n`;
+    agentsMd += `- **Tools / Perms**: \`${tools}\`\n`;
     if (frontmatter.skills && Array.isArray(frontmatter.skills) && frontmatter.skills.length > 0) {
-      agentsMd += `- **Skills**: ${frontmatter.skills.join(', ')}\n`;
+      agentsMd += `- **Skills**: ${frontmatter.skills.map(s => `@.opencode/skills/${s}/SKILL.md`).join(', ')}\n`;
     }
     agentsMd += `- **Description**: ${frontmatter.description || node.title || 'Specialized agent block'}\n\n`;
   }
@@ -32,7 +49,7 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
   if (linkedSkills.length > 0) {
     agentsMd += `## Linked Skill Packages\n\n`;
     for (const s of linkedSkills) {
-      agentsMd += `- **\`${s.name}\`**: ${s.description || 'Modular skill package'} (\`.opencode/skills/${s.name}/\`)\n`;
+      agentsMd += `- **\`${s.name}\`**: ${s.description || 'Modular skill package'} (@.opencode/skills/${s.name}/SKILL.md)\n`;
     }
     agentsMd += `\n`;
   }
@@ -88,18 +105,81 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     language: 'markdown'
   });
 
-  // 2. Generate .opencode/agents/<agent>.md
+  // 2. Generate .opencode/agents/<agent>.md with native OpenCode agent schema
   for (const node of nodes) {
     const { frontmatter, body } = parseAgentYaml(node.content || '');
     const baseName = (node.filename || node.title || 'agent').replace(/\.md$/, '');
     const agentPath = `.opencode/agents/${baseName}.md`;
+    const role = (frontmatter.role || 'assistant').toLowerCase();
+    const mode = role === 'orchestrator' ? 'primary' : 'subagent';
+    const tools = Array.isArray(frontmatter.tools) ? frontmatter.tools : [];
 
-    let frontmatterYaml = `name: ${baseName}\nrole: ${frontmatter.role || 'assistant'}\nmodel: ${frontmatter.model || 'default'}\ntools: [${(frontmatter.tools || []).join(', ')}]`;
-    if (frontmatter.skills && Array.isArray(frontmatter.skills) && frontmatter.skills.length > 0) {
-      frontmatterYaml += `\nskills: [${frontmatter.skills.join(', ')}]`;
+    // Find outgoing target agents for permission.task gating
+    const outgoingEdges = edges.filter(e => e.source_id === node.id);
+    const targetAgents = outgoingEdges.map(e => {
+      const tNode = nodes.find(n => n.id === e.target_id);
+      return tNode ? (tNode.filename || tNode.title || '').replace(/\.md$/, '') : '';
+    }).filter(Boolean);
+
+    // Build OpenCode permission block
+    const permissions = {};
+    if (tools.includes('bash') || tools.includes('terminal')) {
+      permissions.bash = 'allow';
+    } else if (mode === 'subagent') {
+      permissions.bash = 'deny';
     }
 
-    let content = `---\n${frontmatterYaml}\n---\n\n${body.trim()}\n`;
+    if (tools.includes('file_writer') || tools.includes('edit') || tools.includes('patch')) {
+      permissions.edit = 'allow';
+    } else if (role === 'evaluator' || role === 'researcher') {
+      permissions.edit = 'deny';
+    }
+
+    if (tools.includes('web_search') || tools.includes('websearch')) {
+      permissions.websearch = 'allow';
+    }
+
+    if (tools.includes('browser_page') || tools.includes('webfetch')) {
+      permissions.webfetch = 'allow';
+    }
+
+    // Task invocation permissions based on DAG routing edges
+    if (targetAgents.length > 0) {
+      permissions.task = {
+        '*': 'deny'
+      };
+      for (const t of targetAgents) {
+        permissions.task[t] = 'allow';
+      }
+    }
+
+    // Build frontmatter lines
+    const fmLines = [
+      `description: ${frontmatter.description || `${node.title || baseName} (${role})`}`,
+      `mode: ${mode}`,
+      `model: ${frontmatter.model || 'anthropic/claude-3-7-sonnet'}`,
+      `color: "${roleColors[role] || '#38bdf8'}"`
+    ];
+
+    if (frontmatter.temperature !== undefined) {
+      fmLines.push(`temperature: ${frontmatter.temperature}`);
+    }
+
+    if (Object.keys(permissions).length > 0) {
+      fmLines.push('permission:');
+      for (const [permKey, permVal] of Object.entries(permissions)) {
+        if (typeof permVal === 'object') {
+          fmLines.push(`  ${permKey}:`);
+          for (const [subKey, subVal] of Object.entries(permVal)) {
+            fmLines.push(`    "${subKey}": ${subVal}`);
+          }
+        } else {
+          fmLines.push(`  ${permKey}: ${permVal}`);
+        }
+      }
+    }
+
+    let content = `---\n${fmLines.join('\n')}\n---\n\n${body.trim()}\n`;
 
     files.push({
       path: agentPath,
@@ -121,9 +201,12 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     }
   }
 
-  // 4. Generate opencode.json with OpenCode native MCP server configuration
+  // 4. Generate opencode.json with OpenCode native MCP server configuration and instruction binding
   const opencodeConfig = {
     "$schema": "https://opencode.ai/config.json",
+    "instructions": [
+      "AGENTS.md"
+    ],
     "mcp": {
       "agent-canvas": {
         "type": "local",
