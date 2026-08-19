@@ -47,17 +47,26 @@ import { handleMcpMessage } from './mcpServer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const DOCS_DIST_DIR = path.join(__dirname, '..', 'docs', '.vitepress', 'dist');
 const PORT = process.env.PORT || 3000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon',
-  '.md': 'text/markdown; charset=utf-8'
+  '.md': 'text/markdown; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json; charset=utf-8'
 };
 
 function sendJson(res, statusCode, data) {
@@ -847,6 +856,66 @@ Detailed runbook and instructions for this skill.
       }
 
       return sendJson(res, 200, { success: true, steps: executionSteps });
+    }
+
+    // ==========================================
+    // VITEPRESS DOCUMENTATION SERVING (/docs)
+    // ==========================================
+    if (pathname === '/docs') {
+      res.writeHead(301, { Location: '/docs/' });
+      return res.end();
+    }
+
+    if (pathname === '/docs/' || pathname.startsWith('/docs/')) {
+      let subPath = pathname.slice('/docs'.length);
+      if (!subPath || subPath === '/') {
+        subPath = '/index.html';
+      }
+
+      // Strip query strings or hashes
+      subPath = subPath.split('?')[0].split('#')[0];
+
+      let targetFile = path.join(DOCS_DIST_DIR, subPath);
+
+      // Check direct directory index.html
+      if (fs.existsSync(targetFile) && fs.statSync(targetFile).isDirectory()) {
+        targetFile = path.join(targetFile, 'index.html');
+      }
+
+      // Check cleanUrls (.html suffix, e.g. /guide/introduction -> /guide/introduction.html)
+      if (!fs.existsSync(targetFile) && fs.existsSync(targetFile + '.html')) {
+        targetFile = targetFile + '.html';
+      }
+
+      // Check subdirectory index.html (e.g. /guide/ -> /guide/index.html)
+      if (!fs.existsSync(targetFile) && fs.existsSync(path.join(targetFile, 'index.html'))) {
+        targetFile = path.join(targetFile, 'index.html');
+      }
+
+      // Prevent directory traversal
+      if (!targetFile.startsWith(DOCS_DIST_DIR)) {
+        res.writeHead(403);
+        return res.end('Forbidden');
+      }
+
+      if (fs.existsSync(targetFile) && fs.statSync(targetFile).isFile()) {
+        const ext = path.extname(targetFile).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': contentType });
+        const stream = fs.createReadStream(targetFile);
+        return stream.pipe(res);
+      }
+
+      // Fallback 404
+      const fallback404 = path.join(DOCS_DIST_DIR, '404.html');
+      if (fs.existsSync(fallback404)) {
+        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+        const stream = fs.createReadStream(fallback404);
+        return stream.pipe(res);
+      }
+
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Documentation not built. Run `npm run docs:build`.');
     }
 
     // ==========================================

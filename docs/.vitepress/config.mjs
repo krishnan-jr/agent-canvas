@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
+  base: '/docs/',
   title: 'Agent Canvas',
   description: 'Visual Multi-Agent Orchestrator & Transpiler for Universal Markdown (.md) AI Agents',
   appearance: 'dark',
@@ -26,6 +27,7 @@ export default defineConfig({
     },
 
     nav: [
+      { text: 'Canvas App', link: '/../', target: '_self' },
       { text: 'Guide', link: '/guide/introduction' },
       { text: 'Universal Schema', link: '/schema/universal-schema' },
       { text: 'Exporters', link: '/exporters/' },
