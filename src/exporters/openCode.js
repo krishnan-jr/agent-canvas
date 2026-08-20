@@ -101,8 +101,8 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
       const tgtNode = nodes.find(n => n.id === edge.target_id);
       const srcName = (srcNode ? srcNode.filename : edge.source_id).replace(/\.md$/, '');
       const tgtName = (tgtNode ? tgtNode.filename : edge.target_id).replace(/\.md$/, '');
-      const edgeType = edge.edge_type || 'default';
-      const label = edge.label || (edgeType === 'pass' ? 'PASS' : (edgeType === 'fail' ? 'FAIL / RETRY' : 'NEXT'));
+      const cond = (edge.condition || edge.edge_type || '').toLowerCase();
+      const label = edge.label || (cond === 'pass' ? 'PASS' : ((cond === 'fail' || cond === 'reject') ? 'REJECT / RETRY' : 'NEXT'));
 
       agentsMd += `  ${srcName} -- "${label}" --> ${tgtName}\n`;
     }

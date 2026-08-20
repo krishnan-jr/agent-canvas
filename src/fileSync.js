@@ -32,18 +32,15 @@ export function injectRoutesIntoContent(content = '', outgoingEdges = []) {
   for (const edge of outgoingEdges) {
     const targetNode = getNodeById(edge.target_id);
     const targetFilename = targetNode ? targetNode.filename : `${edge.target_id}.md`;
-    const edgeType = edge.edge_type || 'default';
+    const trigger = edge.condition || (edge.edge_type === 'feedback_loop' ? 'fail' : 'pass');
     
-    routesYaml += `  - on: ${edgeType}\n`;
+    routesYaml += `  - on: ${trigger}\n`;
     routesYaml += `    target: ${targetFilename}\n`;
     if (edge.label) {
       routesYaml += `    label: "${edge.label}"\n`;
     }
-    if (edge.condition) {
-      routesYaml += `    condition: "${edge.condition}"\n`;
-    }
-    if (edgeType === 'fail' && edge.max_retries !== undefined) {
-      routesYaml += `    max_retries: ${edge.max_retries}\n`;
+    if (trigger === 'fail' || trigger === 'reject' || edge.edge_type === 'feedback_loop') {
+      routesYaml += `    max_retries: ${edge.max_retries || 5}\n`;
     }
   }
 
@@ -51,9 +48,9 @@ export function injectRoutesIntoContent(content = '', outgoingEdges = []) {
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (fmMatch) {
     let fmBody = fmMatch[1];
-    // Remove existing routes: section
+    // Remove existing routes: section cleanly
     fmBody = fmBody.replace(/\nroutes:\s*\n(?:\s+-\s+[^\n]+\n(?:\s+[^\n]+\n)*)*/g, '').trimEnd();
-    const updatedFm = `---\n${fmBody}${routesYaml}---`;
+    const updatedFm = `---\n${fmBody}\n${routesYaml.trimStart()}---`;
     return content.replace(/^---\r?\n[\s\S]*?\r?\n---/, updatedFm);
   } else {
     // Add new frontmatter header

@@ -455,7 +455,7 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
         // Cycle detected
         const cycle = [...pathEdges, e];
         const hasRetryLimit = cycle.some(edge => edge.max_retries && edge.max_retries > 0);
-        const hasAlternativePass = cycle.some(edge => (outgoing[edge.source_id] || []).some(oe => oe.edge_type === 'pass'));
+        const hasAlternativePass = cycle.some(edge => (outgoing[edge.source_id] || []).some(oe => oe.edge_type === 'pass' || oe.condition === 'pass'));
         
         if (!hasRetryLimit && !hasAlternativePass) {
           const srcNode = nodes.find(n => n.id === e.source_id);

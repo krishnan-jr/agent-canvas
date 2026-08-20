@@ -84,8 +84,11 @@ export function renderMarkdown(markdownText = '') {
       if (key === 'routes') {
         const routeList = frontmatter.routes || [];
         for (const r of routeList) {
-          const badgeClass = r.on === 'pass' ? 'fm-route-pass' : (r.on === 'fail' ? 'fm-route-fail' : 'fm-route-default');
-          const onText = r.on ? r.on.toUpperCase() : 'NEXT';
+          const normOn = (r.on || '').toLowerCase();
+          const isPass = normOn === 'pass' || normOn === 'approved' || normOn === 'start';
+          const isFail = normOn === 'fail' || normOn === 'reject' || normOn === 'rejected';
+          const badgeClass = isPass ? 'fm-route-pass' : (isFail ? 'fm-route-fail' : 'fm-route-default');
+          const onText = (r.on ? r.on : 'NEXT').toUpperCase();
           const maxText = r.max_retries ? ` (max ${r.max_retries})` : '';
           html += `<span class="fm-pill ${badgeClass}"><strong>${onText}:</strong> -> ${escapeHtml(r.target || '')}${maxText}</span>`;
         }
