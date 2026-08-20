@@ -1,7 +1,7 @@
 /**
  * AI Chat Copilot Frontend Component
- * In-UI conversational assistant that generates, wires, audits, and modifies
- * multi-agent canvas pipelines using configured LLMs and MCP autonomous tools.
+ * Clean, standard chatbot interface for autonomous multi-agent graph generation,
+ * wiring, and quality auditing. Scans and utilizes configured LLM models from .env.
  */
 
 import { renderMarkdown } from './markdown.js';
@@ -14,7 +14,7 @@ export class ChatCopilot {
     this.providers = [];
     this.selectedProvider = null;
     this.selectedModel = null;
-    this.messages = []; // [{ role, content, tools }]
+    this.messages = [];
 
     this.initDOM();
     this.initListeners();
@@ -31,7 +31,6 @@ export class ChatCopilot {
     this.inputArea = document.getElementById('copilot-input');
     this.sendBtn = document.getElementById('copilot-send-btn');
     this.modelSelect = document.getElementById('copilot-model-select');
-    this.quickPromptsContainer = document.getElementById('copilot-quick-prompts');
     this.resizer = document.getElementById('copilot-resizer');
   }
 
@@ -60,28 +59,19 @@ export class ChatCopilot {
       // Auto-grow textarea
       this.inputArea.addEventListener('input', () => {
         this.inputArea.style.height = 'auto';
-        this.inputArea.style.height = `${Math.min(this.inputArea.scrollHeight, 120)}px`;
+        const newHeight = Math.min(Math.max(this.inputArea.scrollHeight, 48), 180);
+        this.inputArea.style.height = `${newHeight}px`;
       });
     }
 
     if (this.modelSelect) {
       this.modelSelect.addEventListener('change', (e) => {
         const val = e.target.value;
+        if (!val) return;
         const [provId, modName] = val.split('::');
         this.selectedProvider = provId;
         this.selectedModel = modName;
-      });
-    }
-
-    if (this.quickPromptsContainer) {
-      this.quickPromptsContainer.addEventListener('click', (e) => {
-        const chip = e.target.closest('.copilot-chip');
-        if (chip && chip.dataset.prompt) {
-          if (this.inputArea) {
-            this.inputArea.value = chip.dataset.prompt;
-            this.handleSendMessage();
-          }
-        }
+        localStorage.setItem('agent_canvas_selected_model_val', val);
       });
     }
   }
@@ -96,7 +86,7 @@ export class ChatCopilot {
     const savedWidth = localStorage.getItem('agent_canvas_copilot_width');
     if (savedWidth) {
       const parsed = parseInt(savedWidth, 10);
-      if (parsed >= 320 && parsed <= 800) {
+      if (parsed >= 360 && parsed <= 900) {
         this.drawer.style.width = `${parsed}px`;
       }
     }
@@ -116,8 +106,8 @@ export class ChatCopilot {
     const onMouseMove = (e) => {
       if (!isDragging) return;
       const deltaX = startX - e.clientX;
-      const minWidth = 320;
-      const maxWidth = Math.min(800, window.innerWidth - 100);
+      const minWidth = 360;
+      const maxWidth = Math.min(900, window.innerWidth - 100);
       const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
       this.drawer.style.width = `${newWidth}px`;
     };
@@ -142,9 +132,10 @@ export class ChatCopilot {
     try {
       const res = await fetch('/api/chat/models');
       const data = await res.json();
-      if (data.success && data.providers) {
+      if (data.success && Array.isArray(data.providers)) {
         this.providers = data.providers;
         this.renderModelSelector();
+        this.renderMessages();
       }
     } catch (e) {
       console.warn('Could not fetch AI chat providers:', e);
@@ -155,21 +146,49 @@ export class ChatCopilot {
     if (!this.modelSelect) return;
     this.modelSelect.innerHTML = '';
 
+    if (this.providers.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No Models in .env';
+      opt.disabled = true;
+      opt.selected = true;
+      this.modelSelect.appendChild(opt);
+      this.selectedProvider = null;
+      this.selectedModel = null;
+      return;
+    }
+
+    const savedVal = localStorage.getItem('agent_canvas_selected_model_val');
+    let matchedSaved = false;
+
     for (const prov of this.providers) {
       const optGroup = document.createElement('optgroup');
       optGroup.label = prov.name;
+
       for (const m of prov.models) {
         const opt = document.createElement('option');
-        opt.value = `${prov.id}::${m}`;
+        const val = `${prov.id}::${m}`;
+        opt.value = val;
         opt.textContent = m;
-        if (prov.id === 'scaffold' || (prov.configured && !this.selectedProvider)) {
+
+        if (savedVal && val === savedVal) {
           opt.selected = true;
           this.selectedProvider = prov.id;
           this.selectedModel = m;
+          matchedSaved = true;
         }
+
         optGroup.appendChild(opt);
       }
       this.modelSelect.appendChild(optGroup);
+    }
+
+    if (!matchedSaved && this.providers.length > 0) {
+      const firstProv = this.providers[0];
+      const firstModel = firstProv.defaultModel || firstProv.models[0];
+      this.selectedProvider = firstProv.id;
+      this.selectedModel = firstModel;
+      this.modelSelect.value = `${firstProv.id}::${firstModel}`;
     }
   }
 
@@ -185,8 +204,11 @@ export class ChatCopilot {
     this.isOpen = true;
     if (this.drawer) this.drawer.classList.remove('hidden');
     if (this.toggleBtn) this.toggleBtn.classList.add('active');
+    this.fetchProviders();
     this.loadProjectMessages();
-    if (this.inputArea) this.inputArea.focus();
+    if (this.inputArea) {
+      setTimeout(() => this.inputArea.focus(), 50);
+    }
   }
 
   close() {
@@ -211,7 +233,7 @@ export class ChatCopilot {
     const projectId = this.app.currentProjectId || 'project-default';
     const key = `agent_canvas_chat_${projectId}`;
     try {
-      localStorage.setItem(key, JSON.stringify(this.messages.slice(-30)));
+      localStorage.setItem(key, JSON.stringify(this.messages.slice(-40)));
     } catch (e) {}
   }
 
@@ -228,14 +250,33 @@ export class ChatCopilot {
     if (this.messages.length === 0) {
       const welcome = document.createElement('div');
       welcome.className = 'copilot-welcome-message';
-      welcome.innerHTML = `
-        <div class="welcome-badge">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-          <span>AI Multi-Agent Copilot</span>
-        </div>
-        <h3>How can I help build your workflow?</h3>
-        <p>Ask me to design agent squads, wire feedback loops, attach skills, auto-layout, or audit graph health.</p>
-      `;
+
+      if (this.providers.length === 0) {
+        welcome.innerHTML = `
+          <div class="welcome-badge badge-warning">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>No LLM Provider Configured</span>
+          </div>
+          <h3>Connect an AI Model</h3>
+          <p>Add your API key to <code>.env</code> in the project root to start using AI Copilot:</p>
+          <div class="welcome-code-box">
+            <code>GEMINI_API_KEY=your_key_here</code><br/>
+            <code># or ANTHROPIC_API_KEY=your_key_here</code><br/>
+            <code># or OPENAI_API_KEY=your_key_here</code>
+          </div>
+        `;
+      } else {
+        const activeName = this.selectedModel ? `${this.selectedModel}` : 'AI Assistant';
+        welcome.innerHTML = `
+          <div class="welcome-badge">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <span>Active: ${activeName}</span>
+          </div>
+          <h3>What would you like to build?</h3>
+          <p>Ask in natural language to generate agent squads, wire conditional pass/reject feedback loops, attach domain skills, or audit graph topology.</p>
+        `;
+      }
+
       this.messagesContainer.appendChild(welcome);
       return;
     }
@@ -257,7 +298,7 @@ export class ChatCopilot {
 
     if (msg.role === 'user') {
       header.innerHTML = `
-        <span class="copilot-role-tag role-user">USER</span>
+        <span class="copilot-role-tag role-user">YOU</span>
         <span class="copilot-timestamp">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
       `;
       const body = document.createElement('div');
@@ -271,13 +312,8 @@ export class ChatCopilot {
         <span class="copilot-model-tag">${msg.model || this.selectedModel || 'AI'}</span>
         <span class="copilot-timestamp">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
       `;
-      const body = document.createElement('div');
-      body.className = 'copilot-msg-body markdown-body';
-      body.innerHTML = renderMarkdown(msg.content || '');
 
-      elem.appendChild(header);
-
-      // Tool calls if any
+      // Tool calls list if any
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         const toolsContainer = document.createElement('div');
         toolsContainer.className = 'copilot-tools-list';
@@ -290,13 +326,18 @@ export class ChatCopilot {
               <span class="tool-card-name">${tc.tool}</span>
               <span class="tool-card-status status-success">COMPLETED</span>
             </div>
-            <div class="tool-card-args">${JSON.stringify(tc.args || {})}</div>
+            <div class="tool-card-args">${escapeHtml(JSON.stringify(tc.args || {}))}</div>
           `;
           toolsContainer.appendChild(card);
         }
         elem.appendChild(toolsContainer);
       }
 
+      const body = document.createElement('div');
+      body.className = 'copilot-msg-body markdown-body';
+      body.innerHTML = renderMarkdown(msg.content || '');
+
+      elem.appendChild(header);
       elem.appendChild(body);
     }
 
@@ -316,7 +357,7 @@ export class ChatCopilot {
     if (!text) return;
 
     this.inputArea.value = '';
-    this.inputArea.style.height = 'auto';
+    this.inputArea.style.height = '48px';
 
     const userMsg = {
       role: 'user',
@@ -396,7 +437,6 @@ export class ChatCopilot {
                 this.renderToolCallLive(assistantElem, data.tool, data.args);
                 this.scrollToBottom();
               } else if (eventType === 'canvas_sync') {
-                // Auto-refresh canvas in real time as nodes/edges are mutated!
                 if (this.app) {
                   await this.app.loadCurrentProjectData();
                 }
@@ -435,8 +475,18 @@ export class ChatCopilot {
         <span class="tool-card-name">${toolName}</span>
         <span class="tool-card-status status-success">COMPLETED</span>
       </div>
-      <div class="tool-card-args">${JSON.stringify(args || {})}</div>
+      <div class="tool-card-args">${escapeHtml(JSON.stringify(args || {}))}</div>
     `;
     container.appendChild(card);
   }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

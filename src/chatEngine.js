@@ -1,13 +1,44 @@
 /**
- * AI Copilot Chat & Autonomous Agent Generation Engine
- * Supports Multi-Provider LLM Calls (Gemini, Anthropic, OpenAI, OpenRouter, Local Ollama/vLLM)
- * and autonomous tool-calling loops directly wired into Agent Canvas MCP tools.
+ * AI Copilot Chat & Autonomous Multi-Agent Generation Engine
+ * Dynamically scans .env for configured LLM providers (Gemini, Claude, OpenAI, OpenRouter, Ollama, LM Studio),
+ * parses custom multi-model lists per provider, and executes autonomous MCP tool calling.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { executeToolCall, MCP_TOOLS } from './mcpServer.js';
 import { getNodesByProject, getEdgesByProject, getSkillsByProject, getProjectById } from './db.js';
 
-// Convert MCP Tool Schemas to OpenAI / Anthropic / Gemini tool definitions
+/**
+ * Loads .env dynamically so environment changes are reflected immediately
+ */
+export function loadEnvConfig() {
+  const envPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    try {
+      const content = fs.readFileSync(envPath, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const k = trimmed.slice(0, eqIdx).trim();
+          let v = trimmed.slice(eqIdx + 1).trim();
+          if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+            v = v.slice(1, -1);
+          }
+          if (v) {
+            process.env[k] = v;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+}
+
+/**
+ * Convert MCP Tool Schemas to provider-native formats
+ */
 export function getOpenAIToolSchemas() {
   return MCP_TOOLS.map(t => ({
     type: 'function',
@@ -27,7 +58,7 @@ export function getAnthropicToolSchemas() {
   }));
 }
 
-export function getGeminiToolSchemas() {
+export function getGeminiToolDeclarations() {
   const declarations = MCP_TOOLS.map(t => ({
     name: t.name,
     description: t.description,
@@ -85,415 +116,113 @@ UNIVERSAL AGENT MARKDOWN SCHEMA RULES:
 }
 
 /**
- * Detect available LLM providers from environment
+ * Dynamically scan .env and process.env for actively configured LLM providers and model lists
  */
 export function getAvailableProviders() {
+  loadEnvConfig();
   const providers = [];
 
-  if (process.env.GEMINI_API_KEY) {
+  const parseModels = (envVar, fallbackList) => {
+    const val = process.env[envVar];
+    if (val && typeof val === 'string') {
+      const parsed = val.split(',').map(m => m.trim()).filter(Boolean);
+      if (parsed.length > 0) return parsed;
+    }
+    return fallbackList;
+  };
+
+  // 1. Google Gemini
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
+    const models = parseModels('GEMINI_MODELS', ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.7-flash', 'gemini-3.7-pro']);
     providers.push({
       id: 'gemini',
       name: 'Google Gemini',
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.7-flash', 'gemini-3.7-pro'],
-      defaultModel: 'gemini-2.5-flash',
+      models,
+      defaultModel: models[0],
       configured: true
     });
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  // 2. Anthropic Claude
+  if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim()) {
+    const models = parseModels('ANTHROPIC_MODELS', ['claude-3-7-sonnet', 'claude-3-5-sonnet', 'claude-3-5-haiku']);
     providers.push({
       id: 'anthropic',
       name: 'Anthropic Claude',
-      models: ['claude-3-7-sonnet', 'claude-3-5-sonnet', 'claude-3-5-haiku'],
-      defaultModel: 'claude-3-7-sonnet',
+      models,
+      defaultModel: models[0],
       configured: true
     });
   }
 
-  if (process.env.OPENAI_API_KEY) {
+  // 3. OpenAI
+  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) {
+    const models = parseModels('OPENAI_MODELS', ['gpt-4o', 'gpt-4o-mini', 'o3-mini']);
     providers.push({
       id: 'openai',
       name: 'OpenAI',
-      models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
-      defaultModel: 'gpt-4o',
+      models,
+      defaultModel: models[0],
       configured: true
     });
   }
 
-  if (process.env.OPENROUTER_API_KEY) {
+  // 4. OpenRouter
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.trim()) {
+    const models = parseModels('OPENROUTER_MODELS', ['anthropic/claude-3.7-sonnet', 'google/gemini-2.5-pro', 'openai/gpt-4o']);
     providers.push({
       id: 'openrouter',
       name: 'OpenRouter',
-      models: ['anthropic/claude-3.7-sonnet', 'google/gemini-2.5-pro', 'openai/gpt-4o'],
-      defaultModel: 'anthropic/claude-3.7-sonnet',
+      models,
+      defaultModel: models[0],
       configured: true
     });
   }
 
-  // Local Endpoints (Ollama, LM Studio, etc.)
-  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const lmStudioUrl = process.env.LM_STUDIO_BASE_URL || 'http://localhost:1234/v1';
+  // 5. Ollama
+  if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_BASE_URL.trim()) {
+    const models = parseModels('OLLAMA_MODELS', ['llama3.3', 'qwen2.5-coder', 'deepseek-r1']);
+    providers.push({
+      id: 'ollama',
+      name: 'Ollama (Local)',
+      models,
+      defaultModel: models[0],
+      configured: true,
+      baseUrl: process.env.OLLAMA_BASE_URL.trim()
+    });
+  }
 
-  providers.push({
-    id: 'local',
-    name: 'Local / Ollama / LM Studio',
-    models: ['local-model', 'llama3.3', 'qwen2.5-coder', 'deepseek-r1'],
-    defaultModel: 'local-model',
-    configured: true,
-    endpoints: { ollama: ollamaUrl, lmStudio: lmStudioUrl }
-  });
+  // 6. LM Studio
+  if (process.env.LM_STUDIO_BASE_URL && process.env.LM_STUDIO_BASE_URL.trim()) {
+    const models = parseModels('LM_STUDIO_MODELS', ['local-model']);
+    providers.push({
+      id: 'lm_studio',
+      name: 'LM Studio (Local)',
+      models,
+      defaultModel: models[0],
+      configured: true,
+      baseUrl: process.env.LM_STUDIO_BASE_URL.trim()
+    });
+  }
 
-  // Always include Sandbox / Smart Scaffold Engine
-  providers.push({
-    id: 'scaffold',
-    name: 'Canvas Scaffold Engine (No API Key Required)',
-    models: ['canvas-copilot-scaffold'],
-    defaultModel: 'canvas-copilot-scaffold',
-    configured: true
-  });
+  // 7. vLLM / Custom LocalAI
+  if (process.env.VLLM_BASE_URL && process.env.VLLM_BASE_URL.trim()) {
+    const models = parseModels('VLLM_MODELS', ['vllm-model']);
+    providers.push({
+      id: 'vllm',
+      name: 'vLLM (Local)',
+      models,
+      defaultModel: models[0],
+      configured: true,
+      baseUrl: process.env.VLLM_BASE_URL.trim()
+    });
+  }
 
   return providers;
 }
 
 /**
- * Intelligent Local Scaffold Engine for autonomous execution without external API keys
- */
-export async function* executeScaffoldCopilot(projectId, userMessage, onEvent) {
-  const prompt = userMessage.toLowerCase();
-  yield 'Analyzing request and planning agent topology with Canvas Scaffold Engine...\n\n';
-
-  // 1. Check if user wants to generate a complete squad/pipeline
-  if (prompt.includes('generate') || prompt.includes('create') || prompt.includes('build') || prompt.includes('pipeline') || prompt.includes('squad') || prompt.includes('workflow')) {
-    
-    // Scenario A: Customer Support / Triage Squad
-    if (prompt.includes('support') || prompt.includes('customer') || prompt.includes('triage') || prompt.includes('ticket') || prompt.includes('escalation')) {
-      yield 'Designing **Customer Support & Escalation Squad** (4 agents, feedback loop, skills)...\n\n';
-
-      // 1. Triage Agent
-      onEvent('tool_start', { tool: 'create_agent', args: { filename: 'triage-router.md' } });
-      const triageRes = await executeToolCall('create_agent', {
-        projectId,
-        title: 'Triage Router',
-        filename: 'triage-router.md',
-        role: 'router',
-        description: 'Categorizes incoming customer tickets and routes to specialists based on urgency and topic.',
-        tools: ['file_reader', 'sentiment_analyzer'],
-        temperature: 0.1,
-        content: `---
-name: triage-router
-role: router
-description: "Categorizes incoming customer tickets and routes to specialists based on urgency and topic."
-tools: [file_reader, sentiment_analyzer]
-routes:
-  - on: technical
-    target: tech-specialist.md
-    label: "ROUTE: Technical Issue"
-  - on: billing
-    target: billing-agent.md
-    label: "ROUTE: Billing & Account"
-  - on: escalate
-    target: escalation-lead.md
-    label: "ROUTE: Immediate Escalation"
-temperature: 0.1
----
-
-# Triage Router Agent
-
-You are the **Triage Router Agent**. Your responsibility is to analyze incoming customer requests, assess urgency, classify intent, and route to the appropriate resolver.`
-      });
-      onEvent('tool_result', { tool: 'create_agent', result: triageRes });
-      onEvent('canvas_sync', { projectId });
-      yield `- Created **Triage Router** (\`triage-router.md\`)\n`;
-
-      // 2. Tech Specialist Agent
-      onEvent('tool_start', { tool: 'create_agent', args: { filename: 'tech-specialist.md' } });
-      const techRes = await executeToolCall('create_agent', {
-        projectId,
-        title: 'Tech Specialist',
-        filename: 'tech-specialist.md',
-        role: 'assistant',
-        description: 'Resolves technical issues, performs diagnostic troubleshooting, and drafts customer responses.',
-        tools: ['file_reader', 'web_search', 'kb_search'],
-        skills: ['troubleshooting-guide'],
-        temperature: 0.2,
-        content: `---
-name: tech-specialist
-role: assistant
-description: "Resolves technical issues, performs diagnostic troubleshooting, and drafts customer responses."
-tools: [file_reader, web_search, kb_search]
-skills: [troubleshooting-guide]
-routes:
-  - on: pass
-    target: quality-auditor.md
-    label: "PASS: Submit Draft for Audit"
-temperature: 0.2
----
-
-# Tech Specialist Agent
-
-You are the **Tech Specialist Agent**. You diagnose technical problems, query knowledge bases, and write clear, empathetic, and accurate technical solutions.`
-      });
-      onEvent('tool_result', { tool: 'create_agent', result: techRes });
-      onEvent('canvas_sync', { projectId });
-      yield `- Created **Tech Specialist** (\`tech-specialist.md\`)\n`;
-
-      // 3. Quality Auditor (Evaluator)
-      onEvent('tool_start', { tool: 'create_agent', args: { filename: 'quality-auditor.md' } });
-      const qaRes = await executeToolCall('create_agent', {
-        projectId,
-        title: 'Quality Auditor',
-        filename: 'quality-auditor.md',
-        role: 'evaluator',
-        description: 'Enforces tone, policy compliance, and technical accuracy before customer delivery.',
-        tools: ['file_reader'],
-        temperature: 0.1,
-        content: `---
-name: quality-auditor
-role: evaluator
-description: "Enforces tone, policy compliance, and technical accuracy before customer delivery."
-tools: [file_reader]
-routes:
-  - on: pass
-    target: response-sender.md
-    label: "PASS: Approve for Delivery"
-  - on: reject
-    target: tech-specialist.md
-    label: "REJECT: Tone / Accuracy Fix"
-    max_retries: 3
-temperature: 0.1
----
-
-# Quality Auditor Agent
-
-You are the **Quality Auditor Agent**. You verify that responses meet brand standards, privacy compliance, and solution accuracy before sending.`
-      });
-      onEvent('tool_result', { tool: 'create_agent', result: qaRes });
-      onEvent('canvas_sync', { projectId });
-      yield `- Created **Quality Auditor** (\`quality-auditor.md\`)\n`;
-
-      // Wire Connections
-      if (triageRes.agent?.id && techRes.agent?.id) {
-        onEvent('tool_start', { tool: 'create_edge', args: { source: 'triage-router', target: 'tech-specialist' } });
-        await executeToolCall('create_edge', {
-          projectId,
-          sourceId: triageRes.agent.id,
-          targetId: techRes.agent.id,
-          condition: 'technical',
-          label: 'ROUTE: Technical Issue',
-          edgeType: 'default'
-        });
-      }
-
-      if (techRes.agent?.id && qaRes.agent?.id) {
-        onEvent('tool_start', { tool: 'create_edge', args: { source: 'tech-specialist', target: 'quality-auditor' } });
-        await executeToolCall('create_edge', {
-          projectId,
-          sourceId: techRes.agent.id,
-          targetId: qaRes.agent.id,
-          condition: 'pass',
-          label: 'PASS: Submit Draft for Audit',
-          edgeType: 'pass'
-        });
-
-        // Feedback Loop
-        onEvent('tool_start', { tool: 'create_edge', args: { source: 'quality-auditor', target: 'tech-specialist' } });
-        await executeToolCall('create_edge', {
-          projectId,
-          sourceId: qaRes.agent.id,
-          targetId: techRes.agent.id,
-          condition: 'reject',
-          label: 'REJECT: Tone / Accuracy Fix',
-          edgeType: 'fail'
-        });
-      }
-
-      // Auto layout & lint
-      onEvent('tool_start', { tool: 'auto_layout_graph', args: { projectId } });
-      await executeToolCall('auto_layout_graph', { projectId });
-      
-      onEvent('tool_start', { tool: 'lint_graph', args: { projectId } });
-      const lint = await executeToolCall('lint_graph', { projectId });
-
-      onEvent('canvas_sync', { projectId });
-      yield `\nAuto-layout applied and graph validated (0 errors, isHealthy = ${lint.diagnostics?.isHealthy}).\n\n`;
-      yield `The Customer Support Squad is ready on your canvas!`;
-      return;
-    }
-
-    // Scenario B: Generic Full Development Pipeline
-    yield 'Designing **Autonomous Software Engineering Pipeline** with Multi-Agent Feedback Loops...\n\n';
-    
-    // Create Planner
-    onEvent('tool_start', { tool: 'create_agent', args: { filename: 'architect.md' } });
-    const archRes = await executeToolCall('create_agent', {
-      projectId,
-      title: 'Architect',
-      filename: 'architect.md',
-      role: 'researcher',
-      description: 'Researches requirements, explores codebase architecture, and writes implementation specifications.',
-      tools: ['file_reader', 'web_search'],
-      temperature: 0.2,
-      content: `---
-name: architect
-role: researcher
-description: "Researches requirements, explores codebase architecture, and writes implementation specifications."
-tools: [file_reader, web_search]
-routes:
-  - on: pass
-    target: code-generator.md
-    label: "PASS: Approved Architecture"
-temperature: 0.2
----
-
-# Architect Agent
-
-You are the **Architect Agent**. You explore requirements and design minimal, robust software architectures.`
-    });
-    onEvent('tool_result', { tool: 'create_agent', result: archRes });
-    yield `- Created **Architect** (\`architect.md\`)\n`;
-
-    // Create Coder
-    onEvent('tool_start', { tool: 'create_agent', args: { filename: 'code-generator.md' } });
-    const coderRes = await executeToolCall('create_agent', {
-      projectId,
-      title: 'Code Generator',
-      filename: 'code-generator.md',
-      role: 'coder',
-      description: 'Generates clean, idiomatic code implementations strictly matching the architectural spec.',
-      tools: ['file_reader', 'file_writer', 'bash'],
-      temperature: 0.2,
-      content: `---
-name: code-generator
-role: coder
-description: "Generates clean, idiomatic code implementations strictly matching the architectural spec."
-tools: [file_reader, file_writer, bash]
-routes:
-  - on: pass
-    target: code-evaluator.md
-    label: "PASS: Submit Implementation"
-temperature: 0.2
----
-
-# Code Generator Agent
-
-You are the **Code Generator Agent**. You produce high-quality, dependency-free implementations.`
-    });
-    onEvent('tool_result', { tool: 'create_agent', result: coderRes });
-    yield `- Created **Code Generator** (\`code-generator.md\`)\n`;
-
-    // Create Evaluator
-    onEvent('tool_start', { tool: 'create_agent', args: { filename: 'code-evaluator.md' } });
-    const evalRes = await executeToolCall('create_agent', {
-      projectId,
-      title: 'Code Evaluator',
-      filename: 'code-evaluator.md',
-      role: 'evaluator',
-      description: 'Executes test suites, linters, and security reviews with automated feedback loops.',
-      tools: ['file_reader', 'bash'],
-      temperature: 0.1,
-      content: `---
-name: code-evaluator
-role: evaluator
-description: "Executes test suites, linters, and security reviews with automated feedback loops."
-tools: [file_reader, bash]
-routes:
-  - on: pass
-    target: deployer.md
-    label: "PASS: Verification Approved"
-  - on: reject
-    target: code-generator.md
-    label: "REJECT: Fix Tests & Lint (max 5)"
-    max_retries: 5
-temperature: 0.1
----
-
-# Code Evaluator Agent
-
-You are the **Code Evaluator Agent**. You verify test coverage, security standards, and schema correctness.`
-    });
-    onEvent('tool_result', { tool: 'create_agent', result: evalRes });
-    yield `- Created **Code Evaluator** (\`code-evaluator.md\`)\n`;
-
-    // Connect them
-    if (archRes.agent?.id && coderRes.agent?.id) {
-      await executeToolCall('create_edge', {
-        projectId,
-        sourceId: archRes.agent.id,
-        targetId: coderRes.agent.id,
-        condition: 'pass',
-        label: 'PASS: Approved Architecture',
-        edgeType: 'pass'
-      });
-    }
-    if (coderRes.agent?.id && evalRes.agent?.id) {
-      await executeToolCall('create_edge', {
-        projectId,
-        sourceId: coderRes.agent.id,
-        targetId: evalRes.agent.id,
-        condition: 'pass',
-        label: 'PASS: Submit Implementation',
-        edgeType: 'pass'
-      });
-      await executeToolCall('create_edge', {
-        projectId,
-        sourceId: evalRes.agent.id,
-        targetId: coderRes.agent.id,
-        condition: 'reject',
-        label: 'REJECT: Fix Tests & Lint',
-        edgeType: 'fail'
-      });
-    }
-
-    // Auto-layout & Lint
-    await executeToolCall('auto_layout_graph', { projectId });
-    const lint = await executeToolCall('lint_graph', { projectId });
-
-    onEvent('canvas_sync', { projectId });
-    yield `\nWired forward execution paths and feedback loops.\n`;
-    yield `Auto-layout applied and validated (Graph healthy = ${lint.diagnostics?.isHealthy}).\n`;
-    return;
-  }
-
-  // 2. Check if user wants auto-layout
-  if (prompt.includes('layout') || prompt.includes('arrange') || prompt.includes('organize')) {
-    onEvent('tool_start', { tool: 'auto_layout_graph', args: { projectId } });
-    const res = await executeToolCall('auto_layout_graph', { projectId });
-    onEvent('tool_result', { tool: 'auto_layout_graph', result: res });
-    onEvent('canvas_sync', { projectId });
-    yield `Calculated optimal non-overlapping node positions using Dagre topological flow.\nCanvas re-aligned successfully!`;
-    return;
-  }
-
-  // 3. Check if user wants to lint / verify graph
-  if (prompt.includes('lint') || prompt.includes('verify') || prompt.includes('check') || prompt.includes('health') || prompt.includes('warning')) {
-    onEvent('tool_start', { tool: 'lint_graph', args: { projectId } });
-    const res = await executeToolCall('lint_graph', { projectId });
-    onEvent('tool_result', { tool: 'lint_graph', result: res });
-    yield `### Graph Topology Health Report\n`;
-    yield `- **Total Agent Blocks**: ${res.diagnostics?.totalNodes || 0}\n`;
-    yield `- **Total Decision Connections**: ${res.diagnostics?.totalEdges || 0}\n`;
-    yield `- **Status**: ${res.diagnostics?.isHealthy ? 'HEALTHY' : 'NEEDS ATTENTION'}\n`;
-    if (res.diagnostics?.errors && res.diagnostics.errors.length > 0) {
-      yield `\n**Errors**:\n${res.diagnostics.errors.map(e => `- ${e}`).join('\n')}\n`;
-    }
-    if (res.diagnostics?.warnings && res.diagnostics.warnings.length > 0) {
-      yield `\n**Warnings**:\n${res.diagnostics.warnings.map(w => `- ${w}`).join('\n')}\n`;
-    }
-    return;
-  }
-
-  // 4. Default helpful answer
-  yield `I can help you build and refine multi-agent pipelines on this canvas!\n\n`;
-  yield `**Try asking me to:**\n`;
-  yield `- *"Create a customer support escalation squad with triage, specialist, and QA feedback loop"*\n`;
-  yield `- *"Build an autonomous code development workflow with test verification"*\n`;
-  yield `- *"Add an Evaluator node with a 5-retry reject loop back to Coder"*\n`;
-  yield `- *"Auto-layout all blocks on the canvas"*\n`;
-  yield `- *"Lint and verify graph health"*`;
-}
-
-/**
- * Calls OpenAI / OpenRouter / Ollama / Local compatible endpoint with function calling
+ * OpenAI / OpenRouter / Ollama / LM Studio streaming implementation
  */
 export async function* streamOpenAIChat(projectId, messages, model, endpoint, apiKey, onEvent) {
   const tools = getOpenAIToolSchemas();
@@ -528,12 +257,10 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
 
       if (!res.ok) {
         const errText = await res.text();
-        yield `\n*LLM API Error (${res.status}): ${errText}*\nFalling back to Local Intelligent Scaffold Engine...\n\n`;
-        yield* executeScaffoldCopilot(projectId, messages[messages.length - 1]?.content || '', onEvent);
+        yield `\n*LLM API Error (${res.status}): ${errText}*\n`;
         return;
       }
 
-      // Stream response chunks
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -546,7 +273,7 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep partial line
+        buffer = lines.pop();
 
         for (const line of lines) {
           const trimmed = line.trim();
@@ -577,19 +304,15 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
                   if (tc.function?.arguments) toolCallsAcc[idx].function.arguments += tc.function.arguments;
                 }
               }
-            } catch (err) {
-              // Ignore malformed JSON chunks
-            }
+            } catch (err) {}
           }
         }
       }
 
-      // If no tool calls, we're done
       if (toolCallsAcc.length === 0) {
         break;
       }
 
-      // Execute requested tool calls
       formattedMessages.push({
         role: 'assistant',
         content: currentAssistantMessage || null,
@@ -605,7 +328,6 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
           toolArgs = {};
         }
 
-        // Always inject current projectId if omitted
         if (!toolArgs.projectId) toolArgs.projectId = projectId;
 
         onEvent('tool_start', { tool: toolName, args: toolArgs });
@@ -624,8 +346,182 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
       toolCallsAcc = [];
     }
   } catch (err) {
-    yield `\n*Connection error: ${err.message}*\nFalling back to Local Scaffold Engine...\n\n`;
-    yield* executeScaffoldCopilot(projectId, messages[messages.length - 1]?.content || '', onEvent);
+    yield `\n*Connection error: ${err.message}*\n`;
+  }
+}
+
+/**
+ * Anthropic Claude streaming implementation
+ */
+export async function* streamAnthropicChat(projectId, messages, model, apiKey, baseUrl, onEvent) {
+  const tools = getAnthropicToolSchemas();
+  const systemPrompt = buildCopilotSystemPrompt(projectId);
+  const endpoint = `${(baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '')}/messages`;
+
+  const formattedMessages = messages.map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.content
+  }));
+
+  try {
+    let loopCount = 0;
+    const maxLoops = 6;
+
+    while (loopCount < maxLoops) {
+      loopCount++;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: model || 'claude-3-7-sonnet',
+          system: systemPrompt,
+          messages: formattedMessages,
+          tools: tools,
+          max_tokens: 4096
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        yield `\n*Anthropic API Error (${res.status}): ${errText}*\n`;
+        return;
+      }
+
+      const data = await res.json();
+      const contentBlocks = data.content || [];
+      const toolUseBlocks = contentBlocks.filter(b => b.type === 'tool_use');
+      const textBlocks = contentBlocks.filter(b => b.type === 'text');
+
+      for (const tb of textBlocks) {
+        yield tb.text;
+      }
+
+      if (toolUseBlocks.length === 0) {
+        break;
+      }
+
+      formattedMessages.push({
+        role: 'assistant',
+        content: contentBlocks
+      });
+
+      const toolResults = [];
+      for (const tu of toolUseBlocks) {
+        const toolName = tu.name;
+        const toolArgs = tu.input || {};
+        if (!toolArgs.projectId) toolArgs.projectId = projectId;
+
+        onEvent('tool_start', { tool: toolName, args: toolArgs });
+        const result = await executeToolCall(toolName, toolArgs);
+        onEvent('tool_result', { tool: toolName, result });
+        onEvent('canvas_sync', { projectId });
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: tu.id,
+          content: JSON.stringify(result)
+        });
+      }
+
+      formattedMessages.push({
+        role: 'user',
+        content: toolResults
+      });
+    }
+  } catch (err) {
+    yield `\n*Anthropic connection error: ${err.message}*\n`;
+  }
+}
+
+/**
+ * Google Gemini streaming implementation
+ */
+export async function* streamGeminiChat(projectId, messages, model, apiKey, baseUrl, onEvent) {
+  const tools = getGeminiToolDeclarations();
+  const systemPrompt = buildCopilotSystemPrompt(projectId);
+  const targetModel = model || 'gemini-2.5-flash';
+  const endpoint = `${(baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '')}/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+
+  const contents = [
+    { role: 'user', parts: [{ text: `SYSTEM DIRECTIVE:\n${systemPrompt}` }] },
+    { role: 'model', parts: [{ text: 'Understood. I am ready to design and mutate the multi-agent canvas graph.' }] },
+    ...messages.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    }))
+  ];
+
+  try {
+    let loopCount = 0;
+    const maxLoops = 6;
+
+    while (loopCount < maxLoops) {
+      loopCount++;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          tools: tools
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        yield `\n*Gemini API Error (${res.status}): ${errText}*\n`;
+        return;
+      }
+
+      const data = await res.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate) break;
+
+      const parts = candidate.content?.parts || [];
+      const functionCalls = parts.filter(p => p.functionCall);
+      const textParts = parts.filter(p => p.text);
+
+      for (const tp of textParts) {
+        yield tp.text;
+      }
+
+      if (functionCalls.length === 0) {
+        break;
+      }
+
+      contents.push(candidate.content);
+
+      const responseParts = [];
+      for (const fc of functionCalls) {
+        const toolName = fc.functionCall.name;
+        const toolArgs = fc.functionCall.args || {};
+        if (!toolArgs.projectId) toolArgs.projectId = projectId;
+
+        onEvent('tool_start', { tool: toolName, args: toolArgs });
+        const result = await executeToolCall(toolName, toolArgs);
+        onEvent('tool_result', { tool: toolName, result });
+        onEvent('canvas_sync', { projectId });
+
+        responseParts.push({
+          functionResponse: {
+            name: toolName,
+            response: { output: result }
+          }
+        });
+      }
+
+      contents.push({
+        role: 'user',
+        parts: responseParts
+      });
+    }
+  } catch (err) {
+    yield `\n*Gemini connection error: ${err.message}*\n`;
   }
 }
 
@@ -633,30 +529,57 @@ export async function* streamOpenAIChat(projectId, messages, model, endpoint, ap
  * Main Chat Copilot dispatcher
  */
 export async function* streamChatCopilot(projectId, messages, options = {}, onEvent = () => {}) {
+  loadEnvConfig();
+  const providers = getAvailableProviders();
   const { provider, model } = options;
-  const lastUserMsg = messages[messages.length - 1]?.content || '';
 
-  // 1. If explicit scaffold requested or no external keys configured
-  if (provider === 'scaffold' || (!process.env.GEMINI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY)) {
-    yield* executeScaffoldCopilot(projectId, lastUserMsg, onEvent);
+  // 1. If NO providers are configured in .env, yield a clean notice
+  if (providers.length === 0) {
+    yield `### No AI Model Configured\n\n`;
+    yield `To use the AI Copilot, configure your API key in the \`.env\` file in the project root:\n\n`;
+    yield `\`\`\`bash\n# In .env:\nGEMINI_API_KEY=your_gemini_api_key_here\n# or\nANTHROPIC_API_KEY=your_anthropic_api_key_here\n# or\nOPENAI_API_KEY=your_openai_api_key_here\n\`\`\`\n\n`;
+    yield `You can also customize multiple model names per provider, e.g.:\n`;
+    yield `\`\`\`bash\nGEMINI_MODELS=gemini-2.5-flash,gemini-2.5-pro,gemini-3.7-flash\nANTHROPIC_MODELS=claude-3-7-sonnet,claude-3-5-sonnet\nOPENAI_MODELS=gpt-4o,gpt-4o-mini\n\`\`\`\n`;
     return;
   }
 
-  // 2. OpenAI / OpenRouter / Local Endpoint
-  if (provider === 'openai' || process.env.OPENAI_API_KEY) {
+  // Resolve selected provider
+  const activeProv = providers.find(p => p.id === provider) || providers[0];
+  const activeModel = model || activeProv.defaultModel || activeProv.models[0];
+
+  if (activeProv.id === 'gemini') {
+    yield* streamGeminiChat(projectId, messages, activeModel, process.env.GEMINI_API_KEY, process.env.GEMINI_BASE_URL, onEvent);
+    return;
+  }
+
+  if (activeProv.id === 'anthropic') {
+    yield* streamAnthropicChat(projectId, messages, activeModel, process.env.ANTHROPIC_API_KEY, process.env.ANTHROPIC_BASE_URL, onEvent);
+    return;
+  }
+
+  if (activeProv.id === 'openai') {
     const endpoint = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-    const apiKey = process.env.OPENAI_API_KEY;
-    yield* streamOpenAIChat(projectId, messages, model || 'gpt-4o', endpoint, apiKey, onEvent);
+    yield* streamOpenAIChat(projectId, messages, activeModel, endpoint, process.env.OPENAI_API_KEY, onEvent);
     return;
   }
 
-  if (provider === 'openrouter' || process.env.OPENROUTER_API_KEY) {
+  if (activeProv.id === 'openrouter') {
     const endpoint = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    yield* streamOpenAIChat(projectId, messages, model || 'anthropic/claude-3.7-sonnet', endpoint, apiKey, onEvent);
+    yield* streamOpenAIChat(projectId, messages, activeModel, endpoint, process.env.OPENROUTER_API_KEY, onEvent);
     return;
   }
 
-  // Fallback to Scaffold
-  yield* executeScaffoldCopilot(projectId, lastUserMsg, onEvent);
+  if (activeProv.id === 'ollama') {
+    const endpoint = (activeProv.baseUrl || 'http://localhost:11434').replace(/\/+$/, '') + '/v1';
+    yield* streamOpenAIChat(projectId, messages, activeModel, endpoint, null, onEvent);
+    return;
+  }
+
+  if (activeProv.id === 'lm_studio' || activeProv.id === 'vllm') {
+    const endpoint = activeProv.baseUrl;
+    yield* streamOpenAIChat(projectId, messages, activeModel, endpoint, null, onEvent);
+    return;
+  }
+
+  yield `*Unknown provider: ${activeProv.id}*`;
 }

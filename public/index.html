@@ -229,28 +229,16 @@
       </div>
     </div>
 
-    <div class="copilot-quick-prompts" id="copilot-quick-prompts">
-      <button class="copilot-chip" data-prompt="Create a Customer Support escalation squad with triage, specialist, and QA feedback loop">
-        Customer Support Squad
-      </button>
-      <button class="copilot-chip" data-prompt="Build an Autonomous Code Development pipeline with requirements architect, coder, and test evaluator">
-        Engineering Pipeline
-      </button>
-      <button class="copilot-chip" data-prompt="Auto-layout all blocks on the canvas">
-        Auto-Layout Graph
-      </button>
-      <button class="copilot-chip" data-prompt="Lint and verify graph topology health">
-        Lint & Health Check
-      </button>
-    </div>
-
     <div class="copilot-messages" id="copilot-messages"></div>
 
-    <div class="copilot-input-container">
-      <textarea id="copilot-input" class="copilot-textarea" placeholder="Ask AI to build squads, wire feedback loops, attach skills, or layout graph..." rows="1"></textarea>
-      <button id="copilot-send-btn" class="copilot-send-btn" title="Send (Enter)">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-      </button>
+    <div class="copilot-input-card">
+      <textarea id="copilot-input" class="copilot-textarea" placeholder="Message AI Copilot... (e.g. Generate an agent squad, wire feedback loops, attach skills, or layout graph)" rows="2"></textarea>
+      <div class="copilot-input-footer">
+        <span class="copilot-input-hint">Shift + Enter for new line &bull; Enter to send</span>
+        <button id="copilot-send-btn" class="copilot-send-btn" title="Send Message (Enter)">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
     </div>
   </aside>
 
