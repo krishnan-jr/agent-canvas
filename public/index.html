@@ -69,11 +69,6 @@
         Run Workflow
       </button>
 
-      <button id="btn-toggle-copilot" class="btn btn-secondary btn-copilot" title="AI Copilot Assistant (Natural language pipeline generation)">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-        AI Copilot
-      </button>
-
       <button id="btn-export-bundle" class="btn btn-secondary" title="Export multi-target configurations">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
@@ -175,10 +170,13 @@
       <button id="btn-zoom-reset" class="ctrl-btn" title="Reset View (100%)">1:1</button>
     </div>
 
-    <!-- Mini Help Hint -->
-    <div class="canvas-hint">
-      <span>Drag canvas or Space+Drag to pan • Wheel to zoom • Drag port handles (●) to connect</span>
-    </div>
+    <!-- Floating AI Copilot Action Button -->
+    <button id="btn-floating-copilot" class="floating-copilot-btn" title="AI Copilot Assistant (Natural language pipeline generation)">
+      <div class="floating-copilot-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      </div>
+      <span class="floating-copilot-label">AI Copilot</span>
+    </button>
   </main>
 
   <!-- Sidebar: Workspace Markdown Files Explorer -->

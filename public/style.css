@@ -1341,8 +1341,8 @@ input,
 
 .floating-controls {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  bottom: 24px;
+  right: 156px;
   background-color: rgba(26, 26, 32, 0.85);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
@@ -1388,19 +1388,50 @@ input,
   background-color: var(--border-subtle);
 }
 
-.canvas-hint {
+/* Floating AI Copilot Action Button */
+.floating-copilot-btn {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background-color: rgba(20, 20, 24, 0.7);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 11px;
-  color: var(--text-muted);
-  pointer-events: none;
+  bottom: 24px;
+  right: 24px;
+  background-color: #181824;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 20px;
+  padding: 6px 14px 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #38bdf8;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2);
   z-index: 40;
+  backdrop-filter: blur(12px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floating-copilot-btn:hover {
+  background-color: #202030;
+  border-color: #38bdf8;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.45);
+  transform: translateY(-2px);
+}
+
+.floating-copilot-btn.active {
+  background-color: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+}
+
+.floating-copilot-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-copilot-label {
+  letter-spacing: 0.2px;
 }
 
 /* ==========================================================================
@@ -4400,7 +4431,7 @@ input,
 /* Canvas Minimap Radar */
 .canvas-minimap-container {
   position: absolute;
-  bottom: 24px;
+  bottom: 74px;
   right: 24px;
   width: 196px;
   background-color: rgba(20, 20, 28, 0.85);

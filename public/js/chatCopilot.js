@@ -24,7 +24,7 @@ export class ChatCopilot {
 
   initDOM() {
     this.drawer = document.getElementById('chat-copilot-drawer');
-    this.toggleBtn = document.getElementById('btn-toggle-copilot');
+    this.toggleBtn = document.getElementById('btn-floating-copilot') || document.getElementById('btn-toggle-copilot');
     this.closeBtn = document.getElementById('btn-close-copilot');
     this.clearBtn = document.getElementById('btn-clear-copilot');
     this.messagesContainer = document.getElementById('copilot-messages');

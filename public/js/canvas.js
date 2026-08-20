@@ -75,7 +75,7 @@ export class CanvasEngine {
       }
 
       // Check if click was on canvas background
-      const isInteractive = e.target.closest('.node-block, .port-handle, .resize-handle, .edge-pill-group, .floating-controls, .btn, button, input, textarea, a, .in-dom-dialog-overlay, .modal-backdrop, .top-nav, .files-sidebar, .canvas-minimap-container, .graph-diagnostics-popover');
+      const isInteractive = e.target.closest('.node-block, .port-handle, .resize-handle, .edge-pill-group, .floating-controls, .btn, button, input, textarea, a, .in-dom-dialog-overlay, .modal-backdrop, .top-nav, .files-sidebar, .canvas-minimap-container, .graph-diagnostics-popover, .floating-copilot-btn, .chat-copilot-drawer');
       if (!isInteractive && e.button === 0) {
         if (e.shiftKey) {
           this.startMarquee(e);
