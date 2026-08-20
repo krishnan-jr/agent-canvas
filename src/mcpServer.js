@@ -483,7 +483,7 @@ export async function executeToolCall(toolName, args = {}) {
     }
 
     case 'create_project': {
-      const id = `project-${Date.now().toString(36)}`;
+      const id = `project-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const project = createProject({
         id,
         name: args.name,
@@ -776,7 +776,7 @@ export async function executeToolCall(toolName, args = {}) {
     }
 
     case 'create_skill': {
-      const id = `skill-${Date.now().toString(36)}`;
+      const id = `skill-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const savedSkill = saveSkill({
         id,
         project_id: projectId,
