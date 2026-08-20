@@ -322,9 +322,13 @@ export async function executeWorkflowStream(nodes, edges, projectId, sendEvent) 
     // Evaluate outgoing routing
     const isEvaluator = agentMeta.role === 'evaluator' || agentMeta.role === 'reviewer' || node.title.toLowerCase().includes('evaluator');
     const outEdges = outgoing[currentNodeId] || [];
-    const passEdge = outEdges.find(e => e.edge_type === 'pass');
-    const failEdge = outEdges.find(e => e.edge_type === 'fail');
-    const defaultEdges = outEdges.filter(e => e.edge_type === 'default' || !e.edge_type);
+    const passEdges = outEdges.filter(e => e.edge_type === 'pass' || e.condition === 'pass');
+    const passEdge = passEdges.find(e => {
+      const tn = nodes.find(n => n.id === e.target_id);
+      return tn && tn.filename === 'coder.md';
+    }) || passEdges[0];
+    const failEdge = outEdges.find(e => e.edge_type === 'fail' || e.condition === 'fail' || e.condition === 'reject');
+    const defaultEdges = outEdges.filter(e => e.edge_type === 'default' || (!e.edge_type && !e.condition));
 
     let chosenEdge = null;
     let verdict = 'SUCCESS';
