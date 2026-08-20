@@ -980,7 +980,10 @@ export class CanvasEngine {
         edge.target_handle || 'top'
       );
 
-      const edgeType = edge.edge_type || 'default';
+      const cond = (edge.condition || '').toLowerCase();
+      const isPass = cond === 'pass' || edge.edge_type === 'pass';
+      const isFail = cond === 'fail' || cond === 'reject' || edge.edge_type === 'fail' || edge.edge_type === 'feedback_loop';
+      const edgeType = isPass ? 'pass' : (isFail ? 'fail' : (edge.edge_type || 'default'));
       const markerId = edgeType === 'pass' ? 'arrow-pass' : (edgeType === 'fail' ? 'arrow-fail' : 'arrow-default');
 
       // SVG Path
@@ -1003,8 +1006,17 @@ export class CanvasEngine {
       pillGroup.setAttribute('class', `edge-pill-group pill-group-${edgeType}`);
       pillGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
 
-      const defaultLabel = edgeType === 'pass' ? 'PASS' : (edgeType === 'fail' ? `RETRY (max ${edge.max_retries || 3})` : 'NEXT');
-      const displayLabel = edge.label || defaultLabel;
+      let displayLabel = edge.label || '';
+      if (!displayLabel) {
+        displayLabel = isPass ? 'PASS' : (isFail ? `REJECT (max ${edge.max_retries || 5})` : (cond === 'start' ? 'START' : 'NEXT'));
+      } else {
+        if (isPass && !displayLabel.toUpperCase().startsWith('PASS') && !displayLabel.toUpperCase().startsWith('START')) {
+          displayLabel = `PASS: ${displayLabel}`;
+        } else if (isFail && !displayLabel.toUpperCase().startsWith('REJECT') && !displayLabel.toUpperCase().startsWith('FAIL')) {
+          displayLabel = `REJECT: ${displayLabel}`;
+        }
+      }
+
       const pillWidth = Math.max(70, (displayLabel.length * 7.2) + 22);
       const pillHeight = 24;
 
