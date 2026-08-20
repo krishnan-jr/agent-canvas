@@ -5,6 +5,7 @@ import { dialog } from './dialog.js';
 import { ProjectManager } from './projects.js';
 import { ExportStudio } from './exportStudio.js';
 import { SkillsManager } from './skillsManager.js';
+import { ChatCopilot } from './chatCopilot.js';
 import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
 
 // Pre-configured agent block templates
@@ -135,6 +136,7 @@ class App {
     this.orchestrator = new OrchestrationRunner(this.canvas);
     this.exportStudio = new ExportStudio(this);
     this.skillsManager = new SkillsManager(this);
+    this.copilot = new ChatCopilot(this);
 
     this.projectManager = new ProjectManager({
       onProjectSelect: (project) => this.switchProject(project)
@@ -1054,6 +1056,9 @@ class App {
     if (!project) return;
     dialog.toast(`Switched to "${project.name}"`, 'info');
     await this.loadCurrentProjectData();
+    if (this.copilot) {
+      this.copilot.loadProjectMessages();
+    }
     const sidebar = document.getElementById('file-sidebar');
     if (!sidebar.classList.contains('hidden')) {
       this.loadWorkspaceFiles();

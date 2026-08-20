@@ -45,6 +45,7 @@ import {
 import { validateAgentSchema, validateGraphTopology } from './validator.js';
 import { executeWorkflowStream, resumeApprovalSession } from './llmRunner.js';
 import { handleMcpMessage } from './mcpServer.js';
+import { getAvailableProviders, streamChatCopilot } from './chatEngine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -739,6 +740,48 @@ Detailed runbook and instructions for this skill.
       const { runId, action, modifiedPayload } = body;
       const resumed = resumeApprovalSession(runId, action, modifiedPayload);
       return sendJson(res, 200, { success: resumed });
+    }
+
+    // GET /api/chat/models (List available AI Copilot providers and configured models)
+    if (pathname === '/api/chat/models' && method === 'GET') {
+      const providers = getAvailableProviders();
+      return sendJson(res, 200, { success: true, providers });
+    }
+
+    // POST /api/chat/stream (Real-Time In-UI AI Copilot Streaming & Autonomous Tool Calling)
+    if (pathname === '/api/chat/stream' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const { projectId = 'project-default', messages = [], model, provider } = body;
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+
+      const sendEvent = (event, data) => {
+        try {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        } catch (e) {}
+      };
+
+      const onToolEvent = (type, payload) => {
+        sendEvent(type, payload);
+      };
+
+      try {
+        const stream = streamChatCopilot(projectId, messages, { model, provider }, onToolEvent);
+        for await (const token of stream) {
+          sendEvent('token', { text: token });
+        }
+        sendEvent('done', { success: true });
+      } catch (err) {
+        sendEvent('error', { message: err.message });
+      } finally {
+        res.end();
+      }
+      return;
     }
 
     // GET /api/mcp/config (Dynamically resolve local machine paths for MCP clients)

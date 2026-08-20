@@ -69,6 +69,11 @@
         Run Workflow
       </button>
 
+      <button id="btn-toggle-copilot" class="btn btn-secondary btn-copilot" title="AI Copilot Assistant (Natural language pipeline generation)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        AI Copilot
+      </button>
+
       <button id="btn-export-bundle" class="btn btn-secondary" title="Export multi-target configurations">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
@@ -193,6 +198,58 @@
       <button id="btn-sync-workspace" class="btn btn-secondary btn-block">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         Re-sync Disk & Database
+      </button>
+    </div>
+  </aside>
+
+  <!-- AI Chat Copilot Drawer / Sidebar -->
+  <aside id="chat-copilot-drawer" class="chat-copilot-drawer hidden">
+    <!-- Left Drag Resizer Handle -->
+    <div id="copilot-resizer" class="copilot-resizer-handle" title="Drag horizontally to resize copilot">
+      <div class="resizer-pill-grip-v"></div>
+    </div>
+
+    <div class="copilot-header">
+      <div class="copilot-header-left">
+        <div class="copilot-header-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span>AI Copilot</span>
+        </div>
+        <div class="copilot-model-wrapper">
+          <select id="copilot-model-select" class="copilot-model-select" title="Active AI Model / Inference Provider"></select>
+        </div>
+      </div>
+      <div class="copilot-header-actions">
+        <button id="btn-clear-copilot" class="btn-icon" title="Clear Conversation">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+        <button id="btn-close-copilot" class="btn-icon" title="Close Copilot">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="copilot-quick-prompts" id="copilot-quick-prompts">
+      <button class="copilot-chip" data-prompt="Create a Customer Support escalation squad with triage, specialist, and QA feedback loop">
+        Customer Support Squad
+      </button>
+      <button class="copilot-chip" data-prompt="Build an Autonomous Code Development pipeline with requirements architect, coder, and test evaluator">
+        Engineering Pipeline
+      </button>
+      <button class="copilot-chip" data-prompt="Auto-layout all blocks on the canvas">
+        Auto-Layout Graph
+      </button>
+      <button class="copilot-chip" data-prompt="Lint and verify graph topology health">
+        Lint & Health Check
+      </button>
+    </div>
+
+    <div class="copilot-messages" id="copilot-messages"></div>
+
+    <div class="copilot-input-container">
+      <textarea id="copilot-input" class="copilot-textarea" placeholder="Ask AI to build squads, wire feedback loops, attach skills, or layout graph..." rows="1"></textarea>
+      <button id="copilot-send-btn" class="copilot-send-btn" title="Send (Enter)">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
       </button>
     </div>
   </aside>
