@@ -977,7 +977,8 @@ class App {
       const projectId = this.currentProjectId;
       const [nodesRes, edgesRes] = await Promise.all([
         fetch(`/api/projects/${encodeURIComponent(projectId)}/nodes`).then(r => r.json()),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/edges`).then(r => r.json())
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/edges`).then(r => r.json()),
+        this.skillsManager ? this.skillsManager.fetchSkills() : Promise.resolve([])
       ]);
 
       this.nodes = nodesRes.nodes || [];
