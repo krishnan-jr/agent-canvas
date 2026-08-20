@@ -1780,22 +1780,89 @@ input,
 
 .modal-body-split {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: row;
   overflow: hidden;
   min-height: 0;
+  position: relative;
+  width: 100%;
 }
 
-.modal-editor-pane, .modal-preview-pane {
+.modal-editor-pane {
+  flex: 1 1 50%;
+  min-width: 240px;
+  max-width: calc(100% - 240px);
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
-.modal-editor-pane {
-  border-right: 1px solid var(--border-subtle);
+/* Draggable Split Resizer between Editor & Preview */
+.modal-split-resizer {
+  width: 12px;
+  margin: 0 -6px;
+  z-index: 25;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  position: relative;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.modal-split-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  background-color: var(--border-subtle, #2d2d35);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, width 0.15s ease;
+}
+
+.split-resizer-handle {
+  width: 4px;
+  height: 36px;
+  border-radius: 2px;
+  background-color: #52525e;
+  opacity: 0.7;
+  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 2;
+}
+
+.modal-split-resizer:hover::before,
+.modal-split-resizer.is-dragging::before {
+  background-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+  width: 2px;
+}
+
+.modal-split-resizer:hover .split-resizer-handle,
+.modal-split-resizer.is-dragging .split-resizer-handle {
+  background-color: #38bdf8;
+  opacity: 1;
+  transform: scaleY(1.25);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+
+.modal-preview-pane {
+  flex: 1 1 50%;
+  min-width: 240px;
+  max-width: calc(100% - 240px);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .pane-header {

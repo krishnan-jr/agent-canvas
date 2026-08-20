@@ -348,8 +348,8 @@
         </div>
       </div>
 
-      <div class="modal-body-split">
-        <div class="modal-editor-pane">
+      <div class="modal-body-split" id="modal-body-split">
+        <div class="modal-editor-pane" id="modal-editor-pane">
           <div class="pane-header">
             <span>Markdown & YAML Frontmatter</span>
             <span id="editor-line-indicator" class="pane-sub-info">Line 1</span>
@@ -357,7 +357,10 @@
           <textarea id="modal-editor-textarea" class="modal-textarea" spellcheck="false"></textarea>
           <div id="editor-validation-banner" class="validation-banner hidden"></div>
         </div>
-        <div class="modal-preview-pane">
+        <div class="modal-split-resizer" id="modal-split-resizer" title="Drag to adjust width of editor and preview (Double-click to reset 50/50)">
+          <div class="split-resizer-handle"></div>
+        </div>
+        <div class="modal-preview-pane" id="modal-preview-pane">
           <div class="pane-header">Live Preview & Frontmatter Summary</div>
           <div id="modal-preview-content" class="markdown-body modal-preview"></div>
         </div>

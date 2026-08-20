@@ -426,6 +426,9 @@ class App {
     const banner = document.getElementById('editor-validation-banner');
     const lineIndicator = document.getElementById('editor-line-indicator');
 
+    // Initialize draggable split resizer between editor and preview
+    this.initEditorSplitResizer();
+
     // Create or select floating rich tooltip element
     let tooltipElem = document.getElementById('field-tooltip-popover');
     if (!tooltipElem) {
@@ -929,6 +932,95 @@ class App {
     // Highlight the newly inserted snippet
     textarea.setSelectionRange(insertStartPos, insertStartPos + snippet.length);
     dialog.toast(`Added ${field} to frontmatter`, 'info');
+  }
+
+  initEditorSplitResizer() {
+    const resizer = document.getElementById('modal-split-resizer');
+    const container = document.getElementById('modal-body-split');
+    const editorPane = document.querySelector('.modal-editor-pane');
+    const previewPane = document.querySelector('.modal-preview-pane');
+
+    if (!resizer || !container || !editorPane || !previewPane) return;
+
+    let isDragging = false;
+
+    // Helper to apply percentage split
+    const applySplit = (ratio) => {
+      const clamped = Math.min(Math.max(ratio, 15), 85);
+      editorPane.style.flex = `0 0 ${clamped}%`;
+      editorPane.style.maxWidth = `${clamped}%`;
+      previewPane.style.flex = `0 0 ${100 - clamped}%`;
+      previewPane.style.maxWidth = `${100 - clamped}%`;
+    };
+
+    // Load saved split ratio or default to 50%
+    const savedSplit = localStorage.getItem('agent_canvas_editor_split_pct');
+    if (savedSplit) {
+      const parsed = parseFloat(savedSplit);
+      if (!isNaN(parsed) && parsed >= 15 && parsed <= 85) {
+        applySplit(parsed);
+      }
+    }
+
+    const onMouseDown = (e) => {
+      isDragging = true;
+      resizer.classList.add('is-dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      // Prevent child textareas and scrollable previews from capturing events
+      const textarea = document.getElementById('modal-editor-textarea');
+      const preview = document.getElementById('modal-preview-content');
+      if (textarea) textarea.style.pointerEvents = 'none';
+      if (preview) preview.style.pointerEvents = 'none';
+
+      window.addEventListener('mousemove', onMouseMove, { passive: false });
+      window.addEventListener('mouseup', onMouseUp);
+    };
+
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+
+      const offsetX = e.clientX - rect.left;
+      const ratio = (offsetX / rect.width) * 100;
+      const clamped = Math.min(Math.max(ratio, 15), 85);
+      applySplit(clamped);
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      resizer.classList.remove('is-dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      const textarea = document.getElementById('modal-editor-textarea');
+      const preview = document.getElementById('modal-preview-content');
+      if (textarea) textarea.style.pointerEvents = '';
+      if (preview) preview.style.pointerEvents = '';
+
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 0) {
+        const editorWidth = editorPane.getBoundingClientRect().width;
+        const currentPct = (editorWidth / rect.width) * 100;
+        localStorage.setItem('agent_canvas_editor_split_pct', currentPct.toFixed(1));
+      }
+    };
+
+    resizer.addEventListener('mousedown', onMouseDown);
+
+    // Double-click to reset to 50 / 50
+    resizer.addEventListener('dblclick', () => {
+      applySplit(50);
+      localStorage.setItem('agent_canvas_editor_split_pct', '50.0');
+      dialog.toast('Editor panes reset to 50 / 50', 'info');
+    });
   }
 
   async openEditorModal(node) {
