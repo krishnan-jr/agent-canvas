@@ -48,6 +48,7 @@ import {
 import { validateAgentSchema, parseAgentYaml } from './validator.js';
 import { transpileProject, SUPPORTED_TARGETS } from './exporters/index.js';
 import { executeWorkflowStream, parseAgentFrontmatter, resumeApprovalSession } from './llmRunner.js';
+import { executeWebSearch, executeFetchPage } from './webFetch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -407,6 +408,32 @@ export const MCP_TOOLS = [
         outputDir: { type: 'string', description: 'Optional custom export directory' }
       },
       required: ['target']
+    }
+  },
+  // --- G. Real-time Knowledge & Web Fetching (mcp-fetch integration) ---
+  {
+    name: 'web_search',
+    description: 'Search the internet for real-time web results, documentation, API specifications, and knowledge lookup using DuckDuckGo (zero API key required).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query terms' },
+        max_results: { type: 'number', description: 'Maximum results to return (1-20, default 8)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'fetch_page',
+    description: 'Fetch content from a web URL and extract its main body text converted into clean token-efficient Markdown.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Web page URL (http:// or https://)' },
+        max_length: { type: 'number', description: 'Maximum character length of returned content (default 8000)' },
+        raw_html: { type: 'boolean', description: 'Return raw HTML instead of Markdown (default false)' }
+      },
+      required: ['url']
     }
   }
 ];
@@ -1054,6 +1081,17 @@ export async function executeToolCall(toolName, args = {}) {
         totalFiles: writtenFiles.length,
         files: writtenFiles
       };
+    }
+
+    // --- Web Search & Page Fetching (mcp-fetch engine) ---
+    case 'web_search': {
+      const result = await executeWebSearch(args.query, args.max_results || args.maxResults);
+      return { success: true, ...result };
+    }
+
+    case 'fetch_page': {
+      const result = await executeFetchPage(args.url, args.max_length || args.maxLength, args.raw_html || args.rawHtml);
+      return { success: true, ...result };
     }
 
     default:

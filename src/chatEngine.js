@@ -79,7 +79,8 @@ export function buildCopilotSystemPrompt(projectId) {
   return `You are the Agent Canvas AI Copilot & Multi-Agent Architect.
 Your role is to assist developers in designing, generating, refactoring, wiring, and auditing autonomous multi-agent pipelines and workflows.
 
-You have access to 25 autonomous MCP tools to directly inspect and mutate the canvas graph:
+You have access to 27 autonomous MCP tools to directly inspect, search, and mutate the canvas graph:
+- Real-time Web Search & Knowledge: web_search (DuckDuckGo real-time search), fetch_page (clean web page content extraction to Markdown). Use these whenever you need to resolve knowledge gaps, look up newest framework specifications, verify API parameters, or research domain patterns.
 - Agent Blocks: create_agent, update_agent, delete_agent, get_agent, list_agents
 - Connections & Routing: create_edge, update_edge, delete_edge, auto_layout_graph
 - Modular Skills: create_skill, delete_skill, list_skills, get_skill
