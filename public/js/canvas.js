@@ -494,6 +494,7 @@ export class CanvasEngine {
     const zoomElem = document.getElementById('zoom-level-display');
     if (zoomElem) zoomElem.textContent = `${zoomPercent}%`;
     this.renderMinimap();
+    this.hideNodeInspector();
   }
 
   resetZoom() {
@@ -640,7 +641,9 @@ export class CanvasEngine {
 
     elem.innerHTML = `
       <div class="node-label-floating">
-        <span class="node-label-title">${escapeHtml(node.filename || node.title)}</span>
+        <span class="node-label-role-dot role-${escapeHtml(role)}"></span>
+        <span class="node-label-title">${escapeHtml(node.title || node.filename)}</span>
+        <span class="node-label-filename">${escapeHtml(node.filename)}</span>
       </div>
       <div class="node-card">
         <!-- Ports -->
@@ -653,6 +656,7 @@ export class CanvasEngine {
         <div class="node-header">
           <div class="node-meta">
             <span class="role-badge ${escapeHtml(role)}">${escapeHtml(role)}</span>
+            <span class="node-header-title">${escapeHtml(node.title || node.filename)}</span>
           </div>
           <div class="node-actions">
             <button class="node-tool-btn btn-edit" title="Open Full Editor">
@@ -673,6 +677,16 @@ export class CanvasEngine {
         <div class="resize-handle"></div>
       </div>
     `;
+
+    // Accessibility Hover Inspector
+    elem.addEventListener('mouseenter', () => {
+      if (this.isPanning || this.draggingNode || this.connectingFrom) return;
+      this.showNodeInspector(node.id, elem);
+    });
+
+    elem.addEventListener('mouseleave', () => {
+      this.hideNodeInspector();
+    });
 
     // Event Listeners for Node
     const header = elem.querySelector('.node-header');
@@ -889,6 +903,164 @@ export class CanvasEngine {
     }
   }
 
+  // --- ACCESSIBILITY AGENT HOVER INSPECTOR ---
+
+  showNodeInspector(nodeId, nodeElem) {
+    const node = this.nodes.get(nodeId);
+    if (!node) return;
+
+    const inspector = document.getElementById('canvas-node-inspector');
+    if (!inspector) return;
+
+    const { frontmatter } = parseFrontmatter(node.content || '');
+    const role = (frontmatter.role || node.role || 'assistant').toLowerCase();
+    const desc = frontmatter.description || '';
+    const tools = frontmatter.tools || [];
+    const skills = frontmatter.skills || [];
+
+    // Find outgoing and incoming edges
+    const outgoing = [];
+    const incoming = [];
+
+    this.edges.forEach(e => {
+      if (e.source_id === nodeId) {
+        const tgt = this.nodes.get(e.target_id);
+        if (tgt) outgoing.push({ condition: e.condition || e.edge_type || 'next', target: tgt.filename || tgt.title });
+      }
+      if (e.target_id === nodeId) {
+        const src = this.nodes.get(e.source_id);
+        if (src) incoming.push({ condition: e.condition || e.edge_type || 'next', source: src.filename || src.title });
+      }
+    });
+
+    // Dim non-connected blocks and illuminate connected ones
+    document.querySelectorAll('.node-block').forEach(el => {
+      if (el === nodeElem) {
+        el.classList.add('hover-focused');
+        el.classList.remove('hover-dimmed', 'hover-connected');
+      } else {
+        const otherId = el.id.replace('block-', '');
+        const isConnected = outgoing.some(o => this.nodes.get(otherId)?.filename === o.target) || 
+                            incoming.some(i => this.nodes.get(otherId)?.filename === i.source);
+        if (isConnected) {
+          el.classList.add('hover-connected');
+          el.classList.remove('hover-dimmed');
+        } else {
+          el.classList.add('hover-dimmed');
+          el.classList.remove('hover-connected', 'hover-focused');
+        }
+      }
+    });
+
+    // Highlight connected edge lines
+    this.highlightConnectedEdges(nodeId);
+
+    // Build inspector HTML
+    inspector.innerHTML = `
+      <div class="inspector-card role-${escapeHtml(role)}">
+        <div class="inspector-top-row">
+          <span class="inspector-role-badge role-${escapeHtml(role)}">${escapeHtml(role.toUpperCase())}</span>
+          <span class="inspector-title">${escapeHtml(node.title || node.filename)}</span>
+          <span class="inspector-filename">${escapeHtml(node.filename)}</span>
+        </div>
+        ${desc ? `<div class="inspector-desc">${escapeHtml(desc)}</div>` : ''}
+        ${(tools.length > 0 || skills.length > 0) ? `
+          <div class="inspector-meta-row">
+            ${tools.length > 0 ? `
+              <div class="inspector-meta-group">
+                <span class="inspector-meta-label">TOOLS:</span>
+                <div class="inspector-pills">${tools.map(t => `<span class="inspector-pill pill-tool">${escapeHtml(t)}</span>`).join('')}</div>
+              </div>
+            ` : ''}
+            ${skills.length > 0 ? `
+              <div class="inspector-meta-group">
+                <span class="inspector-meta-label">SKILLS:</span>
+                <div class="inspector-pills">${skills.map(s => `<span class="inspector-pill pill-skill">${escapeHtml(s)}</span>`).join('')}</div>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        ${(outgoing.length > 0 || incoming.length > 0) ? `
+          <div class="inspector-routing-row">
+            ${incoming.length > 0 ? `
+              <div class="inspector-route-group">
+                <span class="inspector-route-direction">INCOMING</span>
+                <span class="inspector-route-list">${incoming.map(i => `<span class="route-tag route-in">${escapeHtml(i.source)} [${escapeHtml(i.condition)}]</span>`).join('')}</span>
+              </div>
+            ` : ''}
+            ${outgoing.length > 0 ? `
+              <div class="inspector-route-group">
+                <span class="inspector-route-direction">OUTGOING</span>
+                <span class="inspector-route-list">${outgoing.map(o => `<span class="route-tag route-out ${escapeHtml(o.condition)}">${escapeHtml(o.condition)} ➜ ${escapeHtml(o.target)}</span>`).join('')}</span>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Position tooltip nicely on screen
+    const rect = nodeElem.getBoundingClientRect();
+    inspector.classList.remove('hidden');
+
+    const inspW = inspector.offsetWidth || 340;
+    const inspH = inspector.offsetHeight || 110;
+
+    let left = rect.left + rect.width / 2 - inspW / 2;
+    left = Math.max(16, Math.min(window.innerWidth - inspW - 16, left));
+
+    let top = rect.top - inspH - 12;
+    if (top < 64) {
+      top = rect.bottom + 12;
+    }
+
+    inspector.style.left = `${left}px`;
+    inspector.style.top = `${top}px`;
+  }
+
+  hideNodeInspector() {
+    const inspector = document.getElementById('canvas-node-inspector');
+    if (inspector) {
+      inspector.classList.add('hidden');
+    }
+    document.querySelectorAll('.node-block').forEach(el => {
+      el.classList.remove('hover-focused', 'hover-connected', 'hover-dimmed');
+    });
+    this.clearEdgeHighlights();
+  }
+
+  highlightConnectedEdges(nodeId) {
+    document.querySelectorAll('.edge-path').forEach(path => {
+      const srcId = path.dataset.sourceId;
+      const tgtId = path.dataset.targetId;
+      if (srcId === nodeId || tgtId === nodeId) {
+        path.classList.add('edge-hover-highlight');
+        path.classList.remove('edge-hover-dimmed');
+      } else {
+        path.classList.add('edge-hover-dimmed');
+        path.classList.remove('edge-hover-highlight');
+      }
+    });
+    document.querySelectorAll('.edge-pill-group').forEach(grp => {
+      const srcId = grp.dataset.sourceId;
+      const tgtId = grp.dataset.targetId;
+      if (srcId === nodeId || tgtId === nodeId) {
+        grp.classList.remove('edge-hover-dimmed');
+      } else {
+        grp.classList.add('edge-hover-dimmed');
+      }
+    });
+  }
+
+  clearEdgeHighlights() {
+    document.querySelectorAll('.edge-path').forEach(path => {
+      path.classList.remove('edge-hover-highlight', 'edge-hover-dimmed');
+    });
+    document.querySelectorAll('.edge-pill-group').forEach(grp => {
+      grp.classList.remove('edge-hover-dimmed');
+    });
+  }
+
   // --- EDGE & BEZIER RENDERING ---
 
   setEdges(edgesList) {
@@ -991,6 +1163,8 @@ export class CanvasEngine {
       path.setAttribute('d', pathData);
       path.setAttribute('class', `edge-path edge-type-${edgeType}`);
       path.setAttribute('id', `edge-${edge.id}`);
+      path.setAttribute('data-source-id', edge.source_id);
+      path.setAttribute('data-target-id', edge.target_id);
       path.setAttribute('marker-end', `url(#${markerId})`);
       path.style.cursor = 'pointer';
 
@@ -1004,6 +1178,8 @@ export class CanvasEngine {
       // Intermediate Transition Pill (Obsidian style card pill)
       const pillGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       pillGroup.setAttribute('class', `edge-pill-group pill-group-${edgeType}`);
+      pillGroup.setAttribute('data-source-id', edge.source_id);
+      pillGroup.setAttribute('data-target-id', edge.target_id);
       pillGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
 
       let displayLabel = edge.label || '';

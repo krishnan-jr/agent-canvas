@@ -552,21 +552,49 @@ input,
   flex-direction: column;
 }
 
-/* Floating filename label above the card (as in screenshot) */
+/* Floating filename label above the card */
 .node-label-floating {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #cbd5e1);
   margin-bottom: 6px;
   padding-left: 2px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   cursor: move;
   user-select: none;
 }
 
+.node-label-role-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.node-label-role-dot.role-orchestrator { background-color: #e879f9; box-shadow: 0 0 6px #e879f9; }
+.node-label-role-dot.role-researcher { background-color: #60a5fa; box-shadow: 0 0 6px #60a5fa; }
+.node-label-role-dot.role-assistant { background-color: #34d399; box-shadow: 0 0 6px #34d399; }
+.node-label-role-dot.role-evaluator { background-color: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+.node-label-role-dot.role-coder { background-color: #c084fc; box-shadow: 0 0 6px #c084fc; }
+.node-label-role-dot.role-router { background-color: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+.node-label-role-dot.role-tool { background-color: #94a3b8; box-shadow: 0 0 6px #94a3b8; }
+
 .node-label-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+}
+
+.node-label-filename {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -605,28 +633,47 @@ input,
   align-items: center;
   justify-content: space-between;
   cursor: move;
+  gap: 8px;
 }
 
 .node-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.node-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-badge {
-  font-size: 10px;
+  font-size: 9.5px;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
   background-color: #2b2b38;
   color: #a5b4fc;
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
-.role-badge.orchestrator { background-color: #3b2447; color: #e879f9; }
-.role-badge.researcher { background-color: #1e3a5f; color: #60a5fa; }
-.role-badge.assistant { background-color: #1e3a38; color: #34d399; }
-.role-badge.evaluator { background-color: #452b1e; color: #fbbf24; }
+.role-badge.orchestrator { background-color: #3b2447; color: #e879f9; border: 1px solid #701a75; }
+.role-badge.researcher { background-color: #1e3a5f; color: #60a5fa; border: 1px solid #1d4ed8; }
+.role-badge.assistant { background-color: #1e3a38; color: #34d399; border: 1px solid #047857; }
+.role-badge.evaluator { background-color: #452b1e; color: #fbbf24; border: 1px solid #b45309; }
+.role-badge.coder { background-color: #2b1e45; color: #c084fc; border: 1px solid #7e22ce; }
+.role-badge.router { background-color: #1e3b45; color: #38bdf8; border: 1px solid #0369a1; }
+.role-badge.tool { background-color: #272738; color: #94a3b8; border: 1px solid #475569; }
 
 .node-actions {
   display: flex;
@@ -5918,6 +5965,239 @@ input,
   cursor: not-allowed;
   box-shadow: none;
 }
+
+/* =============================================================================
+   Accessibility Agent Hover Inspector & Canvas Illumination
+   ============================================================================= */
+
+.canvas-node-inspector {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  animation: inspectorFadeIn 0.15s ease-out;
+}
+
+.canvas-node-inspector.hidden {
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+@keyframes inspectorFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.inspector-card {
+  min-width: 320px;
+  max-width: 480px;
+  background-color: rgba(18, 18, 26, 0.96);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.25);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector-role-badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+}
+
+.inspector-role-badge.role-orchestrator { background-color: #3b2447; color: #e879f9; border: 1px solid #701a75; }
+.inspector-role-badge.role-researcher { background-color: #1e3a5f; color: #60a5fa; border: 1px solid #1d4ed8; }
+.inspector-role-badge.role-assistant { background-color: #1e3a38; color: #34d399; border: 1px solid #047857; }
+.inspector-role-badge.role-evaluator { background-color: #452b1e; color: #fbbf24; border: 1px solid #b45309; }
+.inspector-role-badge.role-coder { background-color: #2b1e45; color: #c084fc; border: 1px solid #7e22ce; }
+.inspector-role-badge.role-router { background-color: #1e3b45; color: #38bdf8; border: 1px solid #0369a1; }
+.inspector-role-badge.role-tool { background-color: #272738; color: #94a3b8; border: 1px solid #475569; }
+
+.inspector-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f8fafc;
+  font-family: var(--font-sans);
+}
+
+.inspector-filename {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+}
+
+.inspector-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 6px 10px;
+  border-left: 2px solid #38bdf8;
+}
+
+.inspector-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.inspector-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inspector-meta-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.inspector-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.inspector-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.inspector-pill.pill-tool {
+  background-color: #1e293b;
+  color: #93c5fd;
+  border: 1px solid #334155;
+}
+
+.inspector-pill.pill-skill {
+  background-color: #2e1065;
+  color: #d8b4fe;
+  border: 1px solid #581c87;
+}
+
+.inspector-routing-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.inspector-route-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+}
+
+.inspector-route-direction {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  min-width: 60px;
+}
+
+.inspector-route-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.route-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: #1a1a24;
+  border: 1px solid #2d2d3e;
+}
+
+.route-tag.route-in {
+  color: #94a3b8;
+}
+
+.route-tag.route-out {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.route-tag.route-out.pass {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.route-tag.route-out.fail,
+.route-tag.route-out.reject {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Hover Focus & Dimming States on Canvas */
+.node-block {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.node-block.hover-focused .node-card {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px #38bdf8, 0 12px 32px rgba(56, 189, 248, 0.3) !important;
+  transform: scale(1.015);
+  z-index: 50;
+}
+
+.node-block.hover-connected .node-card {
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2) !important;
+}
+
+.node-block.hover-dimmed {
+  opacity: 0.35;
+}
+
+.edge-path {
+  transition: opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.edge-path.edge-hover-highlight {
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.6));
+  opacity: 1 !important;
+}
+
+.edge-path.edge-hover-dimmed {
+  opacity: 0.15 !important;
+}
+
+.edge-pill-group.edge-hover-dimmed {
+  opacity: 0.15 !important;
+}
+
 
 
 
