@@ -50,6 +50,7 @@ import { normalizeEdge, deriveEdgeLabel, decorateLabel } from '../public/js/edge
 import { transpileProject, SUPPORTED_TARGETS } from './exporters/index.js';
 import { executeWorkflowStream, parseAgentFrontmatter, resumeApprovalSession } from './llmRunner.js';
 import { executeWebSearch, executeFetchPage } from './webFetch.js';
+import { exportProjectBundle, importProjectBundle } from './projectBundle.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -486,6 +487,31 @@ export const MCP_TOOLS = [
         raw_html: { type: 'boolean', description: 'Return raw HTML instead of Markdown (default false)' }
       },
       required: ['url']
+    }
+  },
+  // --- H. Canvas Project Backup & Sharing ---
+  {
+    name: 'export_canvas_project',
+    description: 'Exports the full Agent Canvas project as a portable JSON bundle (.agentcanvas) containing all agent nodes, coordinates, bezier routes, and modular skills.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'Project ID (default: "project-default")' }
+      }
+    }
+  },
+  {
+    name: 'import_canvas_project',
+    description: 'Imports a complete Agent Canvas project bundle (.agentcanvas / JSON) and creates an active multi-agent workspace with all nodes, routes, and skills.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bundle: { type: 'object', description: 'The Canvas project bundle JSON object' },
+        mode: { type: 'string', enum: ['new', 'overwrite'], description: 'Import as a new project or overwrite existing project (default: "new")' },
+        name: { type: 'string', description: 'Optional custom name for the imported project' },
+        targetProjectId: { type: 'string', description: 'Target project ID if mode is "overwrite"' }
+      },
+      required: ['bundle']
     }
   }
 ];
@@ -1295,6 +1321,22 @@ export async function executeToolCall(toolName, args = {}) {
     case 'fetch_page': {
       const result = await executeFetchPage(args.url, args.max_length || args.maxLength, args.raw_html || args.rawHtml);
       return { success: true, ...result };
+    }
+
+    // --- Project Bundle Export & Import ---
+    case 'export_canvas_project': {
+      const bundle = exportProjectBundle(projectId);
+      return { success: true, bundle };
+    }
+
+    case 'import_canvas_project': {
+      const result = importProjectBundle(args.bundle, {
+        mode: args.mode,
+        name: args.name,
+        description: args.description,
+        targetProjectId: args.targetProjectId
+      });
+      return result;
     }
 
     default:

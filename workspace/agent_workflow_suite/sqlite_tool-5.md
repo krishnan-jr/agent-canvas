@@ -3,13 +3,13 @@ role: tool
 type: sqlite_query
 database: canvas.db
 routes:
-  - on: default
+  - on: pass
     target: researcher-6.md
     label: "Step flow"
-  - on: default
+  - on: pass
     target: researcher-6.md
     label: "Step flow"
-  - on: default
+  - on: pass
     target: researcher-6.md
     label: "Next"
 ---

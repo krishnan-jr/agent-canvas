@@ -33,6 +33,12 @@ export class ProjectManager {
             </div>
           </div>
           <div class="project-header-actions">
+            <button id="btn-import-project-trigger" class="btn btn-secondary" title="Import Canvas Project (.agentcanvas / JSON)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Import Project
+            </button>
             <button id="btn-create-project-trigger" class="btn btn-primary">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               New Project
@@ -85,6 +91,17 @@ export class ProjectManager {
     this.modal.addEventListener('click', (e) => {
       if (e.target === this.modal) this.closeModal();
     });
+
+    // Import project trigger
+    const btnImport = document.getElementById('btn-import-project-trigger');
+    if (btnImport) {
+      btnImport.addEventListener('click', () => {
+        this.closeModal();
+        if (window.app?.importModal) {
+          window.app.importModal.open();
+        }
+      });
+    }
 
     // Create project trigger
     document.getElementById('btn-create-project-trigger').addEventListener('click', () => {
@@ -185,6 +202,11 @@ export class ProjectManager {
             </div>
           </div>
           <div class="project-card-actions">
+            <button class="card-action-btn btn-export-project" title="Export Project (.agentcanvas bundle)">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
             <button class="card-action-btn btn-delete-project" title="Delete Project">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -212,6 +234,14 @@ export class ProjectManager {
       card.addEventListener('click', (e) => {
         if (e.target.closest('.card-action-btn')) return;
         this.selectProject(project.id);
+      });
+
+      // Export project action
+      const btnExport = card.querySelector('.btn-export-project');
+      btnExport.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.location.href = `/api/projects/${encodeURIComponent(project.id)}/export/bundle?download=1`;
+        dialog.toast(`Exporting "${project.name}" as .agentcanvas bundle`, 'info');
       });
 
       // Delete project action

@@ -1,10 +1,9 @@
 ---
 role: assistant
-model: claude-3-5-sonnet
 temperature: 0.7
 tools: [bash, file_writer]
 routes:
-  - on: default
+  - on: pass
     target: assistant-2.md
     label: "Escalate Priority"
 ---

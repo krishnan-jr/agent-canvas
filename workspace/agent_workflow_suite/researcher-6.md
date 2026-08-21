@@ -1,16 +1,15 @@
 ---
 role: researcher
-model: gemini-3.7-flash
 tools: [web_search, browser_page]
 temperature: 0.2
 routes:
-  - on: default
+  - on: pass
     target: evaluator-7.md
     label: "Step flow"
-  - on: default
+  - on: pass
     target: hi.md
     label: "Next"
-  - on: default
+  - on: pass
     target: evaluator-7.md
     label: "Next"
 ---

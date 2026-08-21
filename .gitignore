@@ -40,3 +40,5 @@ workspace/my_custom_export_dir/
 .vscode/
 *.swp
 *.swo
+workspace/
+opencode/

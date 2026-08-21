@@ -131,6 +131,12 @@ export class ExportStudio {
             <span class="footer-meta">Target: <strong id="es-project-name">Active Project</strong></span>
           </div>
           <div class="export-footer-actions">
+            <button id="es-btn-canvas-bundle" class="btn btn-secondary" title="Export as native Agent Canvas package (.agentcanvas) to share and re-import">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Share Canvas (.agentcanvas)
+            </button>
             <button id="es-btn-disk" class="btn btn-secondary">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
@@ -192,6 +198,18 @@ export class ExportStudio {
     document.getElementById('es-btn-zip').addEventListener('click', () => {
       this.downloadZip();
     });
+
+    // Share Canvas Bundle (.agentcanvas)
+    const btnCanvasBundle = document.getElementById('es-btn-canvas-bundle');
+    if (btnCanvasBundle) {
+      btnCanvasBundle.addEventListener('click', () => {
+        const activeProj = this.app.projectManager?.getActiveProject();
+        if (activeProj) {
+          window.location.href = `/api/projects/${encodeURIComponent(activeProj.id)}/export/bundle?download=1`;
+          dialog.toast(`Exporting "${activeProj.name}" as .agentcanvas package`, 'info');
+        }
+      });
+    }
   }
 
   open() {

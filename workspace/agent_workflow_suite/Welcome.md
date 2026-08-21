@@ -1,20 +1,19 @@
 ---
 role: orchestrator
-model: gemini-3.7-flash
 tools: [file_reader, web_search]
 description: Primary orchestration block for coordinating task dispatch.
 skills: [git-workflow, security-audit]
 routes:
-  - on: default
+  - on: pass
     target: assistant-3.md
     label: "Delegate Goal"
-  - on: default
+  - on: pass
     target: assistant-3.md
     label: "Step flow"
-  - on: default
+  - on: pass
     target: assistant-3.md
     label: "Step flow"
-  - on: default
+  - on: pass
     target: assistant-3.md
     label: "Step flow"
 ---

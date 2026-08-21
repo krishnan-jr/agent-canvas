@@ -46,6 +46,7 @@ import { validateAgentSchema, validateGraphTopology } from './validator.js';
 import { executeWorkflowStream, resumeApprovalSession } from './llmRunner.js';
 import { handleMcpMessage } from './mcpServer.js';
 import { getAvailableProviders, streamChatCopilot } from './chatEngine.js';
+import { exportProjectBundle, importProjectBundle } from './projectBundle.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -531,6 +532,58 @@ Detailed runbook and instructions for this skill.
       } catch (err) {
         console.error('Failed to generate ZIP export:', err);
         return sendJson(res, 500, { error: 'Failed to generate ZIP export: ' + err.message });
+      }
+    }
+
+    // GET /api/projects/:id/export/bundle (Portable Canvas Project Package .agentcanvas / JSON)
+    const bundleExportMatch = pathname.match(/^\/api\/projects\/([^/]+)\/export\/bundle$/);
+    if (bundleExportMatch && method === 'GET') {
+      const projectId = decodeURIComponent(bundleExportMatch[1]);
+      try {
+        const bundle = exportProjectBundle(projectId);
+        const slug = bundle.project?.slug || projectId || 'project';
+        const isDownload = parsedUrl.searchParams.get('download') === '1' || parsedUrl.searchParams.get('attachment') === '1';
+
+        const jsonStr = JSON.stringify(bundle, null, 2);
+
+        if (isDownload) {
+          res.writeHead(200, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Disposition': `attachment; filename="${slug}.agentcanvas"`,
+            'Content-Length': Buffer.byteLength(jsonStr, 'utf8')
+          });
+          return res.end(jsonStr);
+        }
+
+        return sendJson(res, 200, bundle);
+      } catch (err) {
+        console.error('Failed to export project bundle:', err);
+        return sendJson(res, 500, { error: 'Failed to export project bundle: ' + err.message });
+      }
+    }
+
+    // POST /api/projects/import (Import Canvas Project Package .agentcanvas / JSON)
+    if (pathname === '/api/projects/import' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const bundleData = body.bundle || (body.nodes || body.project ? body : null);
+
+        if (!bundleData) {
+          return sendJson(res, 400, { error: 'Missing bundle payload in request body' });
+        }
+
+        const options = {
+          mode: body.mode || 'new',
+          targetProjectId: body.targetProjectId || null,
+          name: body.name || null,
+          description: body.description || null
+        };
+
+        const result = importProjectBundle(bundleData, options);
+        return sendJson(res, 200, result);
+      } catch (err) {
+        console.error('Failed to import project bundle:', err);
+        return sendJson(res, 500, { error: 'Failed to import project bundle: ' + err.message });
       }
     }
 

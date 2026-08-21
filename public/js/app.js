@@ -4,6 +4,7 @@ import { renderMarkdown, estimateTokens, escapeHtml } from './markdown.js';
 import { dialog } from './dialog.js';
 import { ProjectManager } from './projects.js';
 import { ExportStudio } from './exportStudio.js';
+import { ImportProjectModal } from './importProjectModal.js';
 import { SkillsManager } from './skillsManager.js';
 import { ChatCopilot } from './chatCopilot.js';
 import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
@@ -137,6 +138,7 @@ class App {
 
     this.orchestrator = new OrchestrationRunner(this.canvas);
     this.exportStudio = new ExportStudio(this);
+    this.importModal = new ImportProjectModal(this);
     this.skillsManager = new SkillsManager(this);
     this.copilot = new ChatCopilot(this);
 
@@ -238,6 +240,25 @@ class App {
       document.addEventListener('click', (e) => {
         if (!e.target.closest('#nav-more-menu-wrapper')) {
           moreDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    // Import & Export Bundle Actions from Nav Menu
+    const btnNavImport = document.getElementById('btn-nav-import-bundle');
+    if (btnNavImport) {
+      btnNavImport.addEventListener('click', () => {
+        this.importModal.open();
+      });
+    }
+
+    const btnNavExport = document.getElementById('btn-nav-export-bundle');
+    if (btnNavExport) {
+      btnNavExport.addEventListener('click', () => {
+        const activeProj = this.projectManager.getActiveProject();
+        if (activeProj) {
+          window.location.href = `/api/projects/${encodeURIComponent(activeProj.id)}/export/bundle?download=1`;
+          dialog.toast(`Exporting "${activeProj.name}" as .agentcanvas package`, 'info');
         }
       });
     }

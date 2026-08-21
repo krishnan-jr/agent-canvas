@@ -1,6 +1,5 @@
 ---
 role: assistant
-model: claude-3-5-sonnet
 status: active
 ---
 
