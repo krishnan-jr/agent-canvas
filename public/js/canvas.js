@@ -5,6 +5,13 @@
 
 import { renderMarkdown, parseFrontmatter, escapeHtml } from './markdown.js';
 import { dialog } from './dialog.js';
+import { classifyEdge, deriveEdgeLabel, decorateLabel } from './edgeSemantics.js';
+import {
+  ROUTING_MODES, DEFAULT_ROUTING_MODE, isRoutingMode,
+  pickHandles, portPosition, buildPath, spreadOffsets, handleNormal
+} from './edgeRouting.js';
+
+const ROUTING_STORAGE_KEY = 'agent-canvas:edge-routing';
 
 export class CanvasEngine {
   constructor({ container, world, svg, nodesLayer, onNodeChange, onNodeDelete, onEdgeCreate, onEdgeDelete, onEdgeUpdate, onNodeSelect, onOpenEditor }) {
@@ -56,6 +63,10 @@ export class CanvasEngine {
     this.resizeStart = { mouseX: 0, mouseY: 0, width: 0, height: 0 };
 
     this.connectingFrom = null; // { nodeId, handle, x, y }
+
+    // Edge routing. Persisted per browser: it is a viewing preference, not graph data,
+    // so it must not vary between people opening the same project.
+    this.edgeRouting = this.loadRoutingPreference();
 
     this.initEventListeners();
     this.initMinimap();
@@ -533,83 +544,179 @@ export class CanvasEngine {
 
   // --- TOPOLOGICAL HIERARCHICAL AUTO-LAYOUT (SUGIYAMA ALGORITHM) ---
 
+  /**
+   * Arrange nodes as a layered DAG: columns follow the pipeline's actual flow, and rows
+   * are ordered to minimise edge crossings.
+   *
+   * The previous version assigned columns from the agent's *role*, so every `coder`,
+   * `researcher` and `assistant` landed in one column no matter where they sat in the
+   * pipeline — Planner, Coder, Documenter and Test-Writer stacked on top of each other
+   * while their edges crossed the whole canvas to reach the evaluator column. Roles now
+   * only break ties for nodes the graph cannot place.
+   */
   autoLayout() {
     const nodesList = Array.from(this.nodes.values());
     if (nodesList.length === 0) return;
 
-    // Role-based hierarchy priorities
-    const roleRanks = {
-      orchestrator: 0,
-      router: 1,
-      assistant: 2,
-      researcher: 2,
-      coder: 2,
-      tool: 3,
-      evaluator: 4
-    };
+    const ids = nodesList.map(n => n.id);
+    const idSet = new Set(ids);
 
-    const incoming = {};
-    const outgoing = {};
-    nodesList.forEach(n => {
-      incoming[n.id] = [];
-      outgoing[n.id] = [];
-    });
-
+    // Layering uses forward edges only. A fail edge is a loop back to an earlier stage —
+    // counting it would make the graph cyclic and collapse the layering.
+    const forward = [];
     for (const edge of this.edges.values()) {
-      if (edge.edge_type !== 'fail' && outgoing[edge.source_id] && incoming[edge.target_id]) {
-        outgoing[edge.source_id].push(edge.target_id);
-        incoming[edge.target_id].push(edge.source_id);
-      }
+      if (!idSet.has(edge.source_id) || !idSet.has(edge.target_id)) continue;
+      if (edge.source_id === edge.target_id) continue;
+      if (classifyEdge(edge) === 'fail') continue;
+      forward.push([edge.source_id, edge.target_id]);
     }
 
-    const layers = {};
-    // Seed layers from role ranks
-    nodesList.forEach(n => {
-      const { frontmatter } = parseFrontmatter(n.content || '');
-      const role = (frontmatter.role || 'assistant').toLowerCase();
-      layers[n.id] = roleRanks[role] !== undefined ? roleRanks[role] : 2;
-    });
+    const layer = this.assignLayers(ids, forward);
 
-    // Group into buckets
-    const layerBuckets = {};
-    nodesList.forEach(n => {
-      const l = layers[n.id] || 0;
-      if (!layerBuckets[l]) layerBuckets[l] = [];
-      layerBuckets[l].push(n);
-    });
+    const buckets = new Map();
+    for (const n of nodesList) {
+      const l = layer.get(n.id) || 0;
+      if (!buckets.has(l)) buckets.set(l, []);
+      buckets.get(l).push(n);
+    }
+    const layerIndices = [...buckets.keys()].sort((a, b) => a - b);
 
-    const layerIndices = Object.keys(layerBuckets).map(Number).sort((a, b) => a - b);
+    this.orderLayers(layerIndices, buckets, forward, layer);
+
+    // Columns are sized from the widest node in each layer plus a lane for the edge
+    // trunks and their label pills, which is where the old fixed 380px fell short.
     const startX = 140;
     const startY = 120;
-    const colWidth = 380;
-    const rowGap = 50;
+    const laneWidth = 190;
+    const rowGap = 60;
 
     let maxLayerHeight = 0;
-    layerIndices.forEach(l => {
-      const bucket = layerBuckets[l];
-      const totalH = bucket.reduce((sum, n) => sum + (n.height || 360) + rowGap, 0) - rowGap;
+    for (const l of layerIndices) {
+      const totalH = buckets.get(l).reduce((sum, n) => sum + (n.height || 360) + rowGap, 0) - rowGap;
       maxLayerHeight = Math.max(maxLayerHeight, totalH);
-    });
+    }
 
-    layerIndices.forEach((l, colIdx) => {
-      const bucket = layerBuckets[l];
+    let x = startX;
+    for (const l of layerIndices) {
+      const bucket = buckets.get(l);
+      const colWidth = Math.max(...bucket.map(n => n.width || 300));
       const totalH = bucket.reduce((sum, n) => sum + (n.height || 360) + rowGap, 0) - rowGap;
-      const offsetY = startY + Math.max(0, (maxLayerHeight - totalH) / 2);
-      let currentY = offsetY;
+      let y = startY + Math.max(0, (maxLayerHeight - totalH) / 2);
 
-      bucket.forEach(n => {
-        n.x = startX + colIdx * colWidth;
-        n.y = currentY;
-        currentY += (n.height || 360) + rowGap;
-
+      for (const n of bucket) {
+        n.x = x;
+        n.y = y;
+        y += (n.height || 360) + rowGap;
         this.updateNodePosition(n);
         if (this.onNodeChange) this.onNodeChange(n);
-      });
-    });
+      }
+      x += colWidth + laneWidth;
+    }
 
     this.renderEdges();
     this.renderMinimap();
     setTimeout(() => this.fitToView(), 60);
+  }
+
+  /**
+   * Longest-path layering: every node sits one column right of its furthest predecessor.
+   *
+   * Longest-path rather than BFS depth because a node with two predecessors in different
+   * columns must go after *both*, otherwise its incoming edges run backwards. Nodes still
+   * unplaced after the sweep are cycle members or orphans; they fall back to role rank so
+   * they at least land somewhere sensible.
+   */
+  assignLayers(ids, forward) {
+    const preds = new Map(ids.map(id => [id, []]));
+    const succs = new Map(ids.map(id => [id, []]));
+    for (const [s, t] of forward) {
+      succs.get(s).push(t);
+      preds.get(t).push(s);
+    }
+
+    const indeg = new Map(ids.map(id => [id, preds.get(id).length]));
+    const layer = new Map();
+    const queue = ids.filter(id => indeg.get(id) === 0);
+    queue.forEach(id => layer.set(id, 0));
+
+    while (queue.length) {
+      const u = queue.shift();
+      for (const v of succs.get(u)) {
+        layer.set(v, Math.max(layer.get(v) ?? 0, (layer.get(u) ?? 0) + 1));
+        indeg.set(v, indeg.get(v) - 1);
+        if (indeg.get(v) === 0) queue.push(v);
+      }
+    }
+
+    // Anything left is in a cycle the fail-edge filter did not break (a gate that both
+    // receives from and returns to the same stage, for instance).
+    //
+    // Resolve these by repeated relaxation rather than a single pass: placing one cycle
+    // member often reveals the layer for the next, and a single pass would only catch
+    // that if the nodes happened to be visited in dependency order.
+    const unplaced = ids.filter(id => !layer.has(id));
+    for (let pass = 0; pass < unplaced.length && unplaced.some(id => !layer.has(id)); pass++) {
+      for (const id of unplaced) {
+        if (layer.has(id)) continue;
+        const known = preds.get(id).map(p => layer.get(p)).filter(v => v !== undefined);
+        if (known.length) layer.set(id, Math.min(...known) + 1);
+      }
+    }
+
+    // Still nothing: a closed cycle with no placed entry point. Fall back to role rank.
+    const roleRanks = { orchestrator: 0, router: 1, researcher: 2, assistant: 3, coder: 3, tool: 4, evaluator: 5 };
+    for (const id of ids) {
+      if (layer.has(id)) continue;
+      const { frontmatter } = parseFrontmatter(this.nodes.get(id)?.content || '');
+      layer.set(id, roleRanks[(frontmatter.role || 'assistant').toLowerCase()] ?? 3);
+    }
+
+    return layer;
+  }
+
+  /**
+   * Barycentre ordering — the standard Sugiyama crossing-reduction heuristic.
+   *
+   * Each node is pulled toward the average row of its neighbours in the adjacent layer;
+   * sorting by that average untangles most crossings. Sweeping forward then backward a
+   * few times lets the ordering settle instead of only satisfying one direction.
+   */
+  orderLayers(layerIndices, buckets, forward, layer) {
+    const neighboursIn = new Map();
+    const neighboursOut = new Map();
+    for (const [s, t] of forward) {
+      if (!neighboursIn.has(t)) neighboursIn.set(t, []);
+      if (!neighboursOut.has(s)) neighboursOut.set(s, []);
+      neighboursIn.get(t).push(s);
+      neighboursOut.get(s).push(t);
+    }
+
+    const rowOf = new Map();
+    const reindex = () => {
+      for (const l of layerIndices) buckets.get(l).forEach((n, i) => rowOf.set(n.id, i));
+    };
+    reindex();
+
+    const barycentre = (node, side) => {
+      const nbrs = (side === 'in' ? neighboursIn : neighboursOut).get(node.id) || [];
+      const rows = nbrs.map(id => rowOf.get(id)).filter(v => v !== undefined);
+      // No neighbour on that side: keep the current row so the node does not jump to the top.
+      return rows.length ? rows.reduce((a, c) => a + c, 0) / rows.length : rowOf.get(node.id);
+    };
+
+    for (let pass = 0; pass < 4; pass++) {
+      const order = pass % 2 === 0 ? layerIndices : [...layerIndices].reverse();
+      const side = pass % 2 === 0 ? 'in' : 'out';
+      for (const l of order) {
+        const bucket = buckets.get(l);
+        // Decorate-sort-undecorate keeps it stable: equal barycentres retain their order.
+        bucket
+          .map((n, i) => ({ n, i, b: barycentre(n, side) }))
+          .sort((a, b) => (a.b - b.b) || (a.i - b.i))
+          .forEach((entry, i) => { bucket[i] = entry.n; });
+        reindex();
+      }
+    }
   }
 
   // --- NODE MANAGEMENT ---
@@ -1081,82 +1188,130 @@ export class CanvasEngine {
     this.renderEdges();
   }
 
-  getPortWorldPosition(nodeId, handle) {
+  nodeBox(nodeId) {
     const node = this.nodes.get(nodeId);
-    if (!node) return { x: 0, y: 0 };
+    if (!node) return null;
+    return { x: node.x, y: node.y, width: node.width || 300, height: node.height || 360 };
+  }
 
-    const w = node.width || 300;
-    const h = node.height || 360;
-    const x = node.x;
-    const y = node.y;
-
-    switch (handle) {
-      case 'top':
-        return { x: x + w / 2, y: y + 24 };
-      case 'bottom':
-        return { x: x + w / 2, y: y + h };
-      case 'left':
-        return { x: x, y: y + (h / 2) + 12 };
-      case 'right':
-        return { x: x + w, y: y + (h / 2) + 12 };
-      default:
-        return { x: x + w / 2, y: y + h };
-    }
+  getPortWorldPosition(nodeId, handle) {
+    const box = this.nodeBox(nodeId);
+    if (!box) return { x: 0, y: 0 };
+    return portPosition(box, handle);
   }
 
   getHandleNormal(handle) {
-    switch (handle) {
-      case 'top': return { x: 0, y: -1 };
-      case 'bottom': return { x: 0, y: 1 };
-      case 'left': return { x: -1, y: 0 };
-      case 'right': return { x: 1, y: 0 };
-      default: return { x: 0, y: 1 };
-    }
+    return handleNormal(handle);
   }
 
-  createBezierPath(p1, handle1, p2, handle2) {
-    const n1 = this.getHandleNormal(handle1);
-    const n2 = this.getHandleNormal(handle2);
+  // --- EDGE ROUTING PREFERENCE ---
 
-    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    const curvature = Math.max(50, Math.min(250, dist * 0.45));
+  loadRoutingPreference() {
+    try {
+      const stored = localStorage.getItem(ROUTING_STORAGE_KEY);
+      if (isRoutingMode(stored)) return stored;
+    } catch {
+      // Private browsing or a blocked storage partition. Not worth failing the canvas over.
+    }
+    return DEFAULT_ROUTING_MODE;
+  }
 
-    const cp1x = p1.x + n1.x * curvature;
-    const cp1y = p1.y + n1.y * curvature;
-    const cp2x = p2.x + n2.x * curvature;
-    const cp2y = p2.y + n2.y * curvature;
+  setEdgeRouting(mode) {
+    if (!isRoutingMode(mode) || mode === this.edgeRouting) return;
+    this.edgeRouting = mode;
+    try {
+      localStorage.setItem(ROUTING_STORAGE_KEY, mode);
+    } catch {
+      // Preference just won't survive a reload.
+    }
+    this.renderEdges();
+    this.container.dispatchEvent(new CustomEvent('edge-routing-changed', { detail: { mode }, bubbles: true }));
+  }
 
-    const pathData = `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  /**
+   * Work out the anchor points and path for one edge.
+   *
+   * Handles stored on the edge are honoured — a user who dragged a wire from a specific
+   * port meant it. Everything else is derived from the current geometry, so the routing
+   * stays sensible after nodes are moved or auto-laid-out.
+   */
+  computeEdgeGeometry(edge, spread = 0) {
+    const srcBox = this.nodeBox(edge.source_id);
+    const tgtBox = this.nodeBox(edge.target_id);
+    if (!srcBox || !tgtBox) return null;
 
-    // Midpoint for intermediate transition pill (t = 0.5)
-    const midX = (p1.x + 3 * cp1x + 3 * cp2x + p2.x) / 8;
-    const midY = (p1.y + 3 * cp1y + 3 * cp2y + p2.y) / 8;
+    const auto = pickHandles(srcBox, tgtBox);
+    const h1 = edge.source_handle || auto.source;
+    const h2 = edge.target_handle || auto.target;
 
-    return { pathData, midX, midY };
+    // Fan the anchors apart along the node face as well as the path itself, otherwise
+    // parallel edges still converge to a single point at each end.
+    const p1 = portPosition(srcBox, h1, spread);
+    const p2 = portPosition(tgtBox, h2, spread);
+
+    return { ...buildPath(p1, h1, p2, h2, this.edgeRouting, spread), p1, p2, h1, h2 };
+  }
+
+  /**
+   * Group edges by unordered node pair so a bundle running between the same two nodes
+   * can be fanned. Unordered because A→B and B→A are visually the same corridor — the
+   * reviewer/coder reject loop sits right on top of the coder/reviewer forward edge
+   * otherwise.
+   */
+  edgeSpreadMap() {
+    const buckets = new Map();
+    for (const edge of this.edges.values()) {
+      const key = [edge.source_id, edge.target_id].sort().join('::');
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(edge.id);
+    }
+
+    const spreads = new Map();
+    for (const ids of buckets.values()) {
+      const offsets = spreadOffsets(ids.length);
+      ids.forEach((id, i) => spreads.set(id, offsets[i]));
+    }
+    return spreads;
   }
 
   renderEdges() {
     this.edgesGroup.innerHTML = '';
     this.edgeLabelsGroup.innerHTML = '';
 
+    // Lets CSS react to the mode (round joins for orthogonal, for instance).
+    this.edgesGroup.setAttribute('class', `edge-routing-${this.edgeRouting}`);
+
+    const spreads = this.edgeSpreadMap();
+
     for (const edge of this.edges.values()) {
-      const p1 = this.getPortWorldPosition(edge.source_id, edge.source_handle || 'bottom');
-      const p2 = this.getPortWorldPosition(edge.target_id, edge.target_handle || 'top');
+      const geometry = this.computeEdgeGeometry(edge, spreads.get(edge.id) || 0);
+      if (!geometry) continue;
 
-      if (!p1 || !p2) continue;
+      const pathData = geometry.d;
+      const midX = geometry.mid.x;
+      const midY = geometry.mid.y;
 
-      const { pathData, midX, midY } = this.createBezierPath(
-        p1,
-        edge.source_handle || 'bottom',
-        p2,
-        edge.target_handle || 'top'
-      );
+      const srcNode = this.nodes.get(edge.source_id);
+      const tgtNode = this.nodes.get(edge.target_id);
 
-      const cond = (edge.condition || '').toLowerCase();
-      const isPass = cond === 'pass' || edge.edge_type === 'pass';
-      const isFail = cond === 'fail' || cond === 'reject' || edge.edge_type === 'fail' || edge.edge_type === 'feedback_loop';
-      const edgeType = isPass ? 'pass' : (isFail ? 'fail' : (edge.edge_type || 'default'));
+      // Shared with the MCP writer (edgeSemantics.js) so an edge is coloured the same
+      // way no matter whether an agent, the inspector, or a legacy row created it.
+      const edgeType = classifyEdge(edge);
+      const isFail = edgeType === 'fail';
       const markerId = edgeType === 'pass' ? 'arrow-pass' : (edgeType === 'fail' ? 'arrow-fail' : 'arrow-default');
+
+      // A transparent fat stroke under the visible one. Structured routing puts long
+      // straight runs close together, and a 2px line is a genuinely hard click target.
+      const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hitArea.setAttribute('d', pathData);
+      hitArea.setAttribute('class', 'edge-hit-area');
+      hitArea.setAttribute('data-source-id', edge.source_id);
+      hitArea.setAttribute('data-target-id', edge.target_id);
+      hitArea.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openEdgeInspector(edge);
+      });
+      this.edgesGroup.appendChild(hitArea);
 
       // SVG Path
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1182,16 +1337,17 @@ export class CanvasEngine {
       pillGroup.setAttribute('data-target-id', edge.target_id);
       pillGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
 
-      let displayLabel = edge.label || '';
-      if (!displayLabel) {
-        displayLabel = isPass ? 'PASS' : (isFail ? `REJECT (max ${edge.max_retries || 5})` : (cond === 'start' ? 'START' : 'NEXT'));
-      } else {
-        if (isPass && !displayLabel.toUpperCase().startsWith('PASS') && !displayLabel.toUpperCase().startsWith('START')) {
-          displayLabel = `PASS: ${displayLabel}`;
-        } else if (isFail && !displayLabel.toUpperCase().startsWith('REJECT') && !displayLabel.toUpperCase().startsWith('FAIL')) {
-          displayLabel = `REJECT: ${displayLabel}`;
-        }
-      }
+      // An unlabelled edge falls back to naming its two endpoints rather than a bare
+      // "NEXT", which is indistinguishable from every other edge once they cross.
+      const retryHint = isFail ? (edge.max_retries || undefined) : undefined;
+      const displayLabel = edge.label
+        ? decorateLabel(edge.label, edgeType, retryHint)
+        : deriveEdgeLabel(
+            srcNode ? (srcNode.filename || srcNode.title) : edge.source_id,
+            tgtNode ? (tgtNode.filename || tgtNode.title) : edge.target_id,
+            edgeType,
+            retryHint
+          );
 
       const pillWidth = Math.max(70, (displayLabel.length * 7.2) + 22);
       const pillHeight = 24;
@@ -1236,14 +1392,20 @@ export class CanvasEngine {
 
   renderTempEdge(fromPort, mousePos) {
     this.tempEdgeGroup.innerHTML = '';
-    const { pathData } = this.createBezierPath(
+
+    // The wire being dragged uses the same routing mode as the finished edges, so what
+    // you see while dragging is what you get when you drop.
+    const opposite = { bottom: 'top', top: 'bottom', left: 'right', right: 'left' };
+    const { d } = buildPath(
       fromPort,
       fromPort.handle,
       mousePos,
-      fromPort.handle === 'bottom' ? 'top' : 'bottom'
+      opposite[fromPort.handle] || 'top',
+      this.edgeRouting
     );
+
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', d);
     path.setAttribute('class', 'temp-edge');
     this.tempEdgeGroup.appendChild(path);
   }

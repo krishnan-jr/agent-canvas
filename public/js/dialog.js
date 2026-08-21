@@ -3,6 +3,8 @@
  * Strictly vector SVG icons - No emojis in UI (per GEMINI.md standards)
  */
 
+import { classifyEdge } from './edgeSemantics.js';
+
 class DialogManager {
   constructor() {
     this.createElements();
@@ -322,7 +324,10 @@ class DialogManager {
 
   edgeConfig(edge) {
     return new Promise((resolve) => {
-      let selectedType = edge.edge_type || 'default';
+      // Use the same classifier as the renderer, so an edge that displays green/red because
+      // its verdict was inferred opens with that type preselected. Saving then pins the
+      // inference into edge_type instead of leaving it ambiguous.
+      let selectedType = classifyEdge(edge);
       const labelInput = document.getElementById('ec-label');
       const retriesInput = document.getElementById('ec-retries');
       const retriesGroup = document.getElementById('ec-retries-group');

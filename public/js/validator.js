@@ -2,6 +2,9 @@
  * Frontend Universal Agent Schema & Frontmatter Validator
  */
 
+import { classifyEdge, isKnownEdgeType } from './edgeSemantics.js';
+import { isUnresolvedModel, MODEL_TIER_NAMES } from './modelMapping.js';
+
 export const UNIVERSAL_ROLES = [
   'orchestrator',
   'assistant',
@@ -168,12 +171,15 @@ export const FIELD_DOCUMENTATION = {
   model: {
     label: 'model',
     type: 'string',
-    description: "Target LLM backend model alias for executing this agent's instructions.",
-    example: 'model: claude-3-5-sonnet',
+    description:
+      "Capability tier for this agent: inherit (default), fast, balanced, or strong. Each exporter " +
+      'translates the tier into its own dialect. A literal model id is also accepted, but pins the ' +
+      'agent to one harness.',
+    example: 'model: balanced',
     harnesses: [
-      { name: 'Claude Code', support: 'Full', note: 'Sets model in .claude/commands/ frontmatter' },
-      { name: 'Codex', support: 'Full', note: 'Sets OpenAI model in codex.json (e.g. gpt-4o)' },
-      { name: 'OpenCode', support: 'Full', note: 'Sets agent model in .opencode/agents/' },
+      { name: 'Claude Code', support: 'Full', note: 'Tier -> haiku/sonnet/opus alias; inherit omits the field' },
+      { name: 'Codex', support: 'Full', note: 'Tier -> OpenAI model id in codex.json' },
+      { name: 'OpenCode', support: 'Full', note: 'Tier -> provider/model; inherit omits the field' },
       { name: 'Antigravity', support: 'Reference', note: 'Listed in GEMINI.md agent matrix' },
       { name: 'Cursor', support: 'Reference', note: 'Documented in rule suggestions' }
     ]
@@ -397,6 +403,29 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
     if (incoming[e.target_id]) incoming[e.target_id].push(e);
   });
 
+  // 2b. Check edge branch typing and labelling. Mirrors src/validator.js so the UI lint
+  // panel and the MCP lint_graph tool report the same issues.
+  const nodeLabel = (id) => {
+    const n = nodes.find(x => x.id === id);
+    return n ? (n.filename || n.title || id) : id;
+  };
+
+  (edges || []).forEach(e => {
+    const tone = classifyEdge(e);
+    const stored = String(e.edge_type || '').toLowerCase();
+    const route = `${nodeLabel(e.source_id)} → ${nodeLabel(e.target_id)}`;
+
+    if (tone !== 'default' && stored !== tone && !isKnownEdgeType(stored)) {
+      addIssue(e.source_id, 'warning',
+        `Edge ${route} renders as "${tone}" (inferred from its condition/label) but is stored as "${stored || 'unset'}", which is not recognised edge vocabulary. Set edgeType to "${tone}" so the branch verdict is explicit.`);
+    }
+
+    if (!String(e.label || '').trim()) {
+      addIssue(e.source_id, 'warning',
+        `Edge ${route} has no label. Give it one naming the branch, or it renders as an anonymous pill.`);
+    }
+  });
+
   // 3. Check individual node frontmatter & route / skill integrity
   const availableSkillNames = (skills || []).map(s => String(s.name || '').trim().toLowerCase());
 
@@ -408,6 +437,14 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
       errors.forEach(err => {
         addIssue(n.id, 'error', `Frontmatter syntax error in "${n.filename}": ${err.message}`);
       });
+    }
+
+    // An unsubstituted `{{MODEL_X}}` token is not caught by any harness at load time — the
+    // agent just runs on some fallback, or fails at first invocation far from its cause.
+    if (frontmatter && isUnresolvedModel(frontmatter.model)) {
+      addIssue(n.id, 'error',
+        `Agent "${n.filename || n.title}" has an unresolved model placeholder (${frontmatter.model}). ` +
+        `Use a tier — ${MODEL_TIER_NAMES.join(', ')} — so each exporter can translate it.`, 'model');
     }
 
     // Check referenced route targets

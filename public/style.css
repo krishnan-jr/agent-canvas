@@ -413,6 +413,20 @@ input,
   transition: stroke 0.15s ease, stroke-width 0.15s ease;
   cursor: pointer;
   pointer-events: stroke;
+  /* Round joins keep the corners of structured routing from spiking. */
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Invisible wide stroke that catches clicks, so a 2px connector is still easy to grab. */
+.edge-hit-area {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  cursor: pointer;
+  pointer-events: stroke;
 }
 
 .edge-path.edge-type-pass {
@@ -1433,6 +1447,68 @@ input,
   width: 1px;
   height: 16px;
   background-color: var(--border-subtle);
+}
+
+/* Connector style picker */
+.routing-control {
+  position: relative;
+  display: flex;
+}
+
+.routing-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: -4px;
+  min-width: 210px;
+  padding: 4px;
+  background-color: rgba(26, 26, 32, 0.97);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 60;
+}
+
+.routing-menu[hidden] {
+  display: none;
+}
+
+.routing-menu-item {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.routing-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.routing-menu-item.active {
+  background-color: rgba(56, 189, 248, 0.14);
+}
+
+.routing-menu-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.routing-menu-item.active .routing-menu-label {
+  color: #38bdf8;
+}
+
+.routing-menu-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
 }
 
 /* Floating AI Copilot Action Button */

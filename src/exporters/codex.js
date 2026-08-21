@@ -4,6 +4,7 @@
  */
 
 import { parseAgentYaml } from '../validator.js';
+import { resolveModel, MODEL_TIERS } from '../../public/js/modelMapping.js';
 
 export function transpileToCodex(project, nodes = [], edges = [], linkedSkills = []) {
   const files = [];
@@ -19,7 +20,9 @@ export function transpileToCodex(project, nodes = [], edges = [], linkedSkills =
     assistants.push({
       name: baseName,
       role: frontmatter.role || 'assistant',
-      model: frontmatter.model || 'gpt-4o',
+      // codex.json needs a concrete model, so `inherit` falls back to the balanced tier
+      // rather than being omitted the way it is for Claude Code and OpenCode.
+      model: resolveModel(frontmatter.model, 'codex') || MODEL_TIERS.balanced.codex,
       temperature: frontmatter.temperature !== undefined ? frontmatter.temperature : 0.2,
       description: frontmatter.description || `Codex instruction module for ${baseName}`,
       tools: (frontmatter.tools || []).map(t => ({

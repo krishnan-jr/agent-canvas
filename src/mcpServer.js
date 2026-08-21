@@ -46,6 +46,7 @@ import {
 } from './fileSync.js';
 
 import { validateAgentSchema, parseAgentYaml } from './validator.js';
+import { normalizeEdge, deriveEdgeLabel, decorateLabel } from '../public/js/edgeSemantics.js';
 import { transpileProject, SUPPORTED_TARGETS } from './exporters/index.js';
 import { executeWorkflowStream, parseAgentFrontmatter, resumeApprovalSession } from './llmRunner.js';
 import { executeWebSearch, executeFetchPage } from './webFetch.js';
@@ -148,23 +149,33 @@ export const MCP_TOOLS = [
   },
   {
     name: 'create_agent',
-    description: 'Creates a new universal agent .md block with YAML frontmatter, system prompt instructions, position, and mirrors it to disk.',
+    description:
+      'Creates a new universal agent .md block and mirrors it to disk. `content` carries the system prompt; ' +
+      'role/description/model/tools/skills are merged into the YAML frontmatter automatically, so you may ' +
+      'pass them alongside `content` rather than hand-writing the `---` block.',
     inputSchema: {
       type: 'object',
       properties: {
         projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
         title: { type: 'string', description: 'Human-readable title (e.g., "Security Auditor")' },
         filename: { type: 'string', description: 'Filename on disk (e.g., "auditor.md")' },
-        content: { type: 'string', description: 'Full Markdown content including YAML frontmatter (---) and instructions' },
-        role: { type: 'string', description: 'Role: orchestrator | assistant | researcher | evaluator | router | coder | tool' },
-        model: { type: 'string', description: 'Model identifier (e.g., "gemini-3.7-flash", "claude-3-5-sonnet", "gpt-4o")' },
-        tools: { type: 'array', items: { type: 'string' }, description: 'Allowed tools (e.g., ["bash", "file_writer", "web_search"])' },
+        content: { type: 'string', description: 'Markdown system prompt. A YAML frontmatter block is optional — if present its keys win, otherwise one is generated from the parameters below.' },
+        role: {
+          type: 'string',
+          enum: ['orchestrator', 'assistant', 'researcher', 'evaluator', 'router', 'coder', 'tool'],
+          description: 'Universal role. Drives export decisions such as OpenCode primary/subagent mode and default permissions.'
+        },
+        description: { type: 'string', description: 'One-line summary of what this agent does. Emitted into every target harness — supply it, or exports fall back to a generic placeholder.' },
+        model: { type: 'string', description: 'Model identifier, or a "{{PLACEHOLDER}}" token for templates' },
+        tools: { type: 'array', items: { type: 'string' }, description: 'Universal tool names (read, grep, glob, edit, write, bash, task, todowrite, question, webfetch, websearch, skill). Any other name is treated as an MCP server the agent needs (e.g. "cds-mcp") and is wired up in the exported harness config.' },
         skills: { type: 'array', items: { type: 'string' }, description: 'Linked skill package names (e.g., ["git-workflow", "security-audit"])' },
+        temperature: { type: 'number', description: 'Sampling temperature (e.g. 0.0 for deterministic gates)' },
+        mode: { type: 'string', enum: ['primary', 'subagent', 'all'], description: 'Explicit OpenCode mode override; inferred from `role` when omitted' },
         x: { type: 'number', description: 'X canvas coordinate (default: 100)' },
         y: { type: 'number', description: 'Y canvas coordinate (default: 100)' },
         color: { type: 'string', description: 'Card surface color hex code' }
       },
-      required: ['title', 'filename']
+      required: ['title', 'filename', 'role', 'description']
     }
   },
   {
@@ -177,7 +188,18 @@ export const MCP_TOOLS = [
         projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
         title: { type: 'string', description: 'Updated title' },
         filename: { type: 'string', description: 'Updated filename' },
-        content: { type: 'string', description: 'Updated markdown content' },
+        content: { type: 'string', description: 'Updated markdown content. Existing frontmatter is preserved unless a structured field below is also supplied.' },
+        role: {
+          type: 'string',
+          enum: ['orchestrator', 'assistant', 'researcher', 'evaluator', 'router', 'coder', 'tool'],
+          description: 'Updated universal role'
+        },
+        description: { type: 'string', description: 'Updated one-line summary' },
+        model: { type: 'string', description: 'Updated model identifier' },
+        tools: { type: 'array', items: { type: 'string' }, description: 'Updated universal tool names; unknown names are treated as MCP servers' },
+        skills: { type: 'array', items: { type: 'string' }, description: 'Updated linked skill package names' },
+        temperature: { type: 'number', description: 'Updated sampling temperature' },
+        mode: { type: 'string', enum: ['primary', 'subagent', 'all'], description: 'Updated OpenCode mode override' },
         x: { type: 'number', description: 'Updated X coordinate' },
         y: { type: 'number', description: 'Updated Y coordinate' },
         color: { type: 'string', description: 'Updated color hex code' }
@@ -201,33 +223,63 @@ export const MCP_TOOLS = [
   // --- C. Graph Routing & Edges ---
   {
     name: 'create_edge',
-    description: 'Creates a bezier transition connection between two agent nodes with conditional routing logic.',
+    description:
+      'Creates a bezier transition connection between two agent nodes with conditional routing logic. ' +
+      'ALWAYS set `edgeType` — it drives the canvas colour: "pass" renders green, "fail" renders red, ' +
+      '"default" renders grey for a plain sequential step. An approval/rejection branch left as "default" ' +
+      'is a modelling error: the gate will not be visually distinguishable on the canvas. ' +
+      'ALWAYS write a `label` naming what the branch means; if you omit it, one is generated from the two node names.',
     inputSchema: {
       type: 'object',
       properties: {
         projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
         sourceId: { type: 'string', description: 'Source agent node ID' },
         targetId: { type: 'string', description: 'Target agent node ID' },
-        condition: { type: 'string', description: 'Transition condition (e.g. "pass", "fail", "next", "approval")' },
-        edgeType: { type: 'string', description: 'Edge type: "default" | "conditional" | "feedback_loop"' },
-        label: { type: 'string', description: 'Visual label on edge (e.g., "Pass -> Deploy", "Reject & Refine")' },
-        maxRetries: { type: 'number', description: 'Maximum retry loops for fail condition (default: 3)' },
+        edgeType: {
+          type: 'string',
+          enum: ['pass', 'fail', 'default'],
+          description:
+            'Branch verdict, and the ONLY thing that colours the edge. ' +
+            '"pass" = accepted/approved/succeeded (GREEN). ' +
+            '"fail" = rejected/denied/failed, i.e. a retry or feedback loop (RED). ' +
+            '"default" = unconditional next step (GREY). Required for any gated branch.'
+        },
+        condition: {
+          type: 'string',
+          description:
+            'The trigger in the source agent\'s own wording, shown in exports and used by the runner ' +
+            '(e.g. "pass", "fail", "STATUS: APPROVED", "STATUS: REJECTED @ PHASE PLAN"). ' +
+            'Free text is fine — the verdict is taken from `edgeType`.'
+        },
+        label: {
+          type: 'string',
+          description:
+            'Visual pill text on the edge. Name the branch and, where useful, the endpoints ' +
+            '(e.g. "planner → reviewer", "APPROVED → code"). Defaults to "<source> → <target>".'
+        },
+        maxRetries: { type: 'number', description: 'Maximum retry loops for a "fail" edge (default: 3)' },
         sourceHandle: { type: 'string', description: 'Port terminal: "top" | "bottom" | "left" | "right"' },
         targetHandle: { type: 'string', description: 'Port terminal: "top" | "bottom" | "left" | "right"' }
       },
-      required: ['sourceId', 'targetId']
+      required: ['sourceId', 'targetId', 'edgeType']
     }
   },
   {
     name: 'update_edge',
-    description: 'Updates an existing transition connection edge parameters (condition, label, edgeType, maxRetries, port terminals).',
+    description:
+      'Updates an existing transition connection edge (condition, label, edgeType, maxRetries, port terminals). ' +
+      'Use this to fix a grey edge that should be a green "pass" or red "fail" branch.',
     inputSchema: {
       type: 'object',
       properties: {
         edgeId: { type: 'string', description: 'Unique ID of the edge to update' },
         projectId: { type: 'string', description: 'Project ID (default: "project-default")' },
-        condition: { type: 'string', description: 'Updated condition ("pass", "fail", "next", "approval", etc.)' },
-        edgeType: { type: 'string', description: 'Updated edge type: "default" | "conditional" | "feedback_loop"' },
+        edgeType: {
+          type: 'string',
+          enum: ['pass', 'fail', 'default'],
+          description: 'Updated branch verdict: "pass" (GREEN) | "fail" (RED) | "default" (GREY).'
+        },
+        condition: { type: 'string', description: 'Updated trigger text in the source agent\'s wording' },
         label: { type: 'string', description: 'Updated visual label on edge' },
         maxRetries: { type: 'number', description: 'Updated maximum retry loops' },
         sourceHandle: { type: 'string', description: 'Updated port terminal: "top" | "bottom" | "left" | "right"' },
@@ -495,6 +547,81 @@ export const MCP_PROMPTS = [
   }
 ];
 
+/**
+ * Compose an agent's markdown from free-form content plus structured parameters.
+ *
+ * Every exporter needs a `---` frontmatter block with at least `role` and `description`;
+ * a node without one is unusable downstream. Callers, though, naturally reach for
+ * `content` to supply the system prompt and pass role/model/tools alongside it. Both
+ * inputs are therefore merged rather than treated as alternatives.
+ *
+ * On create, the frontmatter already inside `content` wins — it is the more explicit
+ * statement of intent — and the structured params fill the gaps. On update, pass
+ * `paramsWin` so an explicitly supplied parameter overrides the stored frontmatter,
+ * which is the whole point of calling update_agent with that field.
+ */
+function buildAgentMarkdown(content, params = {}, { paramsWin = false } = {}) {
+  const YAML_KEYS = ['name', 'role', 'description', 'model', 'tools', 'skills', 'temperature', 'mode'];
+
+  const raw = (content || '').trim();
+  const hasFrontmatter = raw.startsWith('---');
+  const { frontmatter = {}, body = '' } = hasFrontmatter ? parseAgentYaml(raw) : { frontmatter: {}, body: raw };
+
+  const pick = (key) => (paramsWin
+    ? (params[key] ?? frontmatter[key])
+    : (frontmatter[key] ?? params[key]));
+
+  const merged = {
+    name: pick('name'),
+    role: pick('role') ?? 'assistant',
+    description: pick('description') ?? `Specialized ${params.name || 'agent'} block`,
+    model: pick('model'),
+    tools: pick('tools'),
+    skills: pick('skills'),
+    temperature: pick('temperature'),
+    mode: pick('mode')
+  };
+
+  const lines = ['---'];
+  for (const key of YAML_KEYS) {
+    const value = merged[key];
+    if (value === undefined || value === null || value === '') continue;
+    lines.push(Array.isArray(value) ? `${key}: [${value.join(', ')}]` : `${key}: ${value}`);
+  }
+
+  // Preserve any keys the caller wrote that this schema does not know about (`routes`,
+  // `globs`, harness-specific extras) rather than silently dropping them on rewrite.
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (YAML_KEYS.includes(key)) continue;
+    lines.push(serializeYamlEntry(key, value));
+  }
+  lines.push('---', '');
+
+  const instructions = body.trim() || `# ${params.title || merged.name || 'Agent'}\n\nAgent instructions and execution guidance.`;
+  return `${lines.join('\n')}\n${instructions}\n`;
+}
+
+/** Minimal YAML emitter for passthrough frontmatter keys the agent schema does not model. */
+function serializeYamlEntry(key, value) {
+  if (Array.isArray(value)) {
+    if (value.every(v => typeof v !== 'object' || v === null)) {
+      return `${key}: [${value.join(', ')}]`;
+    }
+    const rows = value.map(item => {
+      const entries = Object.entries(item)
+        .map(([k, v], i) => `${i === 0 ? '  - ' : '    '}${k}: ${v}`)
+        .join('\n');
+      return entries;
+    });
+    return `${key}:\n${rows.join('\n')}`;
+  }
+  if (value && typeof value === 'object') {
+    const rows = Object.entries(value).map(([k, v]) => `  ${k}: ${v}`).join('\n');
+    return `${key}:\n${rows}`;
+  }
+  return `${key}: ${value}`;
+}
+
 // =============================================================================
 // Tool Call Handlers
 // =============================================================================
@@ -608,26 +735,22 @@ export async function executeToolCall(toolName, args = {}) {
 
     case 'create_agent': {
       const id = `node-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-      let fullContent = args.content;
 
-      if (!fullContent) {
-        const toolsYaml = args.tools && args.tools.length > 0 ? `[${args.tools.join(', ')}]` : '[]';
-        const skillsYaml = args.skills && args.skills.length > 0 ? `[${args.skills.join(', ')}]` : '[]';
-        fullContent = [
-          '---',
-          `name: ${args.filename.replace(/\.md$/, '')}`,
-          `role: ${args.role || 'assistant'}`,
-          `model: ${args.model || 'gemini-3.7-flash'}`,
-          `tools: ${toolsYaml}`,
-          `skills: ${skillsYaml}`,
-          `temperature: ${args.temperature !== undefined ? args.temperature : 0.2}`,
-          '---',
-          '',
-          `# ${args.title}`,
-          '',
-          'Agent instructions and execution guidance.'
-        ].join('\n');
-      }
+      // `content` and the structured params are merged, never either/or. Previously a
+      // caller that supplied `content` (the natural thing to do — it carries the system
+      // prompt) had its role/model/tools/skills silently discarded and no frontmatter
+      // synthesised at all, producing nodes that every exporter rejects as invalid.
+      const fullContent = buildAgentMarkdown(args.content, {
+        name: args.filename.replace(/\.md$/, ''),
+        role: args.role,
+        description: args.description,
+        model: args.model,
+        tools: args.tools,
+        skills: args.skills,
+        temperature: args.temperature,
+        mode: args.mode,
+        title: args.title
+      });
 
       const nodeData = {
         id,
@@ -652,12 +775,28 @@ export async function executeToolCall(toolName, args = {}) {
       const existing = getNodeById(args.nodeId);
       if (!existing) throw new Error(`Agent '${args.nodeId}' not found.`);
 
+      const filename = args.filename !== undefined ? args.filename : existing.filename;
+      const baseContent = args.content !== undefined ? args.content : existing.content;
+
+      // Only rewrite the frontmatter when the caller actually supplied a structured field;
+      // a pure content or position update must leave the existing YAML byte-for-byte alone.
+      const structuredKeys = ['role', 'description', 'model', 'tools', 'skills', 'temperature', 'mode'];
+      const touchesFrontmatter = structuredKeys.some(k => args[k] !== undefined);
+
+      const content = touchesFrontmatter
+        ? buildAgentMarkdown(baseContent, {
+            name: (filename || '').replace(/\.md$/, ''),
+            title: args.title !== undefined ? args.title : existing.title,
+            ...Object.fromEntries(structuredKeys.filter(k => args[k] !== undefined).map(k => [k, args[k]]))
+          }, { paramsWin: true })
+        : baseContent;
+
       const updateData = {
         id: existing.id,
         project_id: projectId,
         title: args.title !== undefined ? args.title : existing.title,
-        filename: args.filename !== undefined ? args.filename : existing.filename,
-        content: args.content !== undefined ? args.content : existing.content,
+        filename,
+        content,
         x: args.x !== undefined ? args.x : existing.x,
         y: args.y !== undefined ? args.y : existing.y,
         width: existing.width,
@@ -684,6 +823,28 @@ export async function executeToolCall(toolName, args = {}) {
     // --- Edges & Routing ---
     case 'create_edge': {
       const id = `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+      const srcNode = getNodeById(args.sourceId);
+      const tgtNode = getNodeById(args.targetId);
+      if (!srcNode) throw new Error(`Source node '${args.sourceId}' not found.`);
+      if (!tgtNode) throw new Error(`Target node '${args.targetId}' not found.`);
+
+      const srcName = srcNode.filename || srcNode.title;
+      const tgtName = tgtNode.filename || tgtNode.title;
+
+      const { condition, edge_type, tone } = normalizeEdge({
+        condition: args.condition,
+        edgeType: args.edgeType,
+        label: args.label
+      });
+      const maxRetries = args.maxRetries || 3;
+
+      // Never store a nameless edge. Agents frequently supply neither label nor
+      // condition, which used to render as an anonymous grey "Step flow" pill.
+      const label = args.label
+        ? decorateLabel(args.label, tone, tone === 'fail' ? maxRetries : undefined)
+        : deriveEdgeLabel(srcName, tgtName, tone, tone === 'fail' ? maxRetries : undefined);
+
       const edge = saveEdge({
         id,
         project_id: projectId,
@@ -691,18 +852,56 @@ export async function executeToolCall(toolName, args = {}) {
         target_id: args.targetId,
         source_handle: args.sourceHandle || 'right',
         target_handle: args.targetHandle || 'left',
-        edge_type: args.edgeType || (args.condition === 'fail' ? 'feedback_loop' : 'default'),
-        condition: args.condition || '',
-        max_retries: args.maxRetries || 3,
-        label: args.label || (args.condition === 'fail' ? 'Reject & Refine' : args.condition === 'pass' ? 'Pass' : 'Step flow')
+        edge_type,
+        condition,
+        max_retries: maxRetries,
+        label
       }, projectId);
 
-      return { success: true, message: 'Edge created successfully', edge };
+      const warnings = [];
+      if (!args.edgeType) {
+        warnings.push(
+          `'edgeType' was omitted; inferred "${edge_type}" from the condition/label. ` +
+          `Pass edgeType explicitly ("pass" | "fail" | "default") so the branch colour is intentional.`
+        );
+      }
+      if (edge_type === 'default' && /approv|reject|pass|fail|accept|deny/i.test(`${args.condition || ''} ${args.label || ''}`)) {
+        warnings.push(
+          `This edge reads like a verdict branch but is typed "default", so it renders grey rather than green/red.`
+        );
+      }
+
+      return {
+        success: true,
+        message: `Edge created: ${label} [${edge_type}]`,
+        edge,
+        ...(warnings.length ? { warnings } : {})
+      };
     }
 
     case 'update_edge': {
       const existing = getEdgeById(args.edgeId);
       if (!existing) throw new Error(`Edge '${args.edgeId}' not found.`);
+
+      const merged = {
+        condition: args.condition !== undefined ? args.condition : existing.condition,
+        edgeType: args.edgeType !== undefined ? args.edgeType : existing.edge_type,
+        label: args.label !== undefined ? args.label : existing.label
+      };
+      const { condition, edge_type, tone } = normalizeEdge(merged);
+      const maxRetries = args.maxRetries !== undefined ? args.maxRetries : existing.max_retries;
+
+      const srcNode = getNodeById(existing.source_id);
+      const tgtNode = getNodeById(existing.target_id);
+      const rawLabel = merged.label;
+      const label = rawLabel
+        ? decorateLabel(rawLabel, tone, tone === 'fail' ? maxRetries : undefined)
+        : deriveEdgeLabel(
+            srcNode ? (srcNode.filename || srcNode.title) : existing.source_id,
+            tgtNode ? (tgtNode.filename || tgtNode.title) : existing.target_id,
+            tone,
+            tone === 'fail' ? maxRetries : undefined
+          );
 
       const updatedEdge = saveEdge({
         id: existing.id,
@@ -711,13 +910,17 @@ export async function executeToolCall(toolName, args = {}) {
         target_id: existing.target_id,
         source_handle: args.sourceHandle !== undefined ? args.sourceHandle : existing.source_handle,
         target_handle: args.targetHandle !== undefined ? args.targetHandle : existing.target_handle,
-        edge_type: args.edgeType !== undefined ? args.edgeType : existing.edge_type,
-        condition: args.condition !== undefined ? args.condition : existing.condition,
-        max_retries: args.maxRetries !== undefined ? args.maxRetries : existing.max_retries,
-        label: args.label !== undefined ? args.label : existing.label
+        edge_type,
+        condition,
+        max_retries: maxRetries,
+        label
       }, projectId);
 
-      return { success: true, message: `Edge '${args.edgeId}' updated successfully`, edge: updatedEdge };
+      return {
+        success: true,
+        message: `Edge '${args.edgeId}' updated: ${label} [${edge_type}]`,
+        edge: updatedEdge
+      };
     }
 
     case 'delete_edge': {

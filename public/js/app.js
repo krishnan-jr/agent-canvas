@@ -7,6 +7,7 @@ import { ExportStudio } from './exportStudio.js';
 import { SkillsManager } from './skillsManager.js';
 import { ChatCopilot } from './chatCopilot.js';
 import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
+import { ROUTING_MODES } from './edgeRouting.js';
 
 // Pre-configured agent block templates
 const TEMPLATES = {
@@ -177,6 +178,8 @@ class App {
       this.canvas.resetZoom();
     });
 
+    this.initRoutingMenu();
+
     // Add Block Button
     document.getElementById('btn-add-block').addEventListener('click', () => {
       this.createNodeFromTemplate('assistant');
@@ -246,6 +249,56 @@ class App {
 
     // Modal Editor UI
     this.initModalEditor();
+  }
+
+  /**
+   * Connector-style picker in the floating controls.
+   *
+   * Built from ROUTING_MODES rather than hand-written markup so adding a mode to
+   * edgeRouting.js is all it takes to have it appear here.
+   */
+  initRoutingMenu() {
+    const btn = document.getElementById('btn-edge-routing');
+    const menu = document.getElementById('routing-menu');
+    if (!btn || !menu) return;
+
+    const paint = () => {
+      menu.innerHTML = ROUTING_MODES.map(m => `
+        <button type="button" class="routing-menu-item${m.id === this.canvas.edgeRouting ? ' active' : ''}"
+                role="menuitemradio" aria-checked="${m.id === this.canvas.edgeRouting}" data-mode="${m.id}">
+          <span class="routing-menu-label">${m.label}</span>
+          <span class="routing-menu-hint">${m.hint}</span>
+        </button>
+      `).join('');
+      btn.title = `Connector style: ${ROUTING_MODES.find(m => m.id === this.canvas.edgeRouting)?.label || 'Curved'}`;
+    };
+
+    const close = () => {
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    };
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const opening = menu.hidden;
+      if (opening) paint();
+      menu.hidden = !opening;
+      btn.setAttribute('aria-expanded', String(opening));
+    });
+
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-mode]');
+      if (!item) return;
+      e.stopPropagation();
+      this.canvas.setEdgeRouting(item.dataset.mode);
+      paint();
+      close();
+    });
+
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+    paint();
   }
 
   initMcpModal() {

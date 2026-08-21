@@ -3,6 +3,9 @@
  * Validates YAML frontmatter and markdown structure against universal and platform-specific rules.
  */
 
+import { classifyEdge, isKnownEdgeType } from '../public/js/edgeSemantics.js';
+import { isUnresolvedModel, MODEL_TIER_NAMES } from '../public/js/modelMapping.js';
+
 export const UNIVERSAL_ROLES = [
   'orchestrator',
   'assistant',
@@ -116,12 +119,15 @@ export const FIELD_DOCUMENTATION = {
   model: {
     label: 'model',
     type: 'string',
-    description: "Target LLM backend model alias for executing this agent's instructions.",
-    example: 'model: claude-3-5-sonnet',
+    description:
+      "Capability tier for this agent: inherit (default), fast, balanced, or strong. Each exporter " +
+      'translates the tier into its own dialect. A literal model id is also accepted, but pins the ' +
+      'agent to one harness.',
+    example: 'model: balanced',
     harnesses: [
-      { name: 'Claude Code', support: 'Full', note: 'Sets model in .claude/commands/ frontmatter' },
-      { name: 'Codex', support: 'Full', note: 'Sets OpenAI model in codex.json (e.g. gpt-4o)' },
-      { name: 'OpenCode', support: 'Full', note: 'Sets agent model in .opencode/agents/' },
+      { name: 'Claude Code', support: 'Full', note: 'Tier -> haiku/sonnet/opus alias; inherit omits the field' },
+      { name: 'Codex', support: 'Full', note: 'Tier -> OpenAI model id in codex.json' },
+      { name: 'OpenCode', support: 'Full', note: 'Tier -> provider/model; inherit omits the field' },
       { name: 'Antigravity', support: 'Reference', note: 'Listed in GEMINI.md agent matrix' },
       { name: 'Cursor', support: 'Reference', note: 'Documented in rule suggestions' }
     ]
@@ -360,6 +366,36 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
     });
   }
 
+  // 2b. Check edge branch typing and labelling.
+  //
+  // Both of these are silent problems — the graph still runs, it just becomes unreadable —
+  // which is exactly what lint is for.
+  const nodeLabel = (id) => {
+    const n = nodes.find(x => x.id === id);
+    return n ? (n.filename || n.title || id) : id;
+  };
+
+  (edges || []).forEach(e => {
+    const tone = classifyEdge(e);
+    const stored = String(e.edge_type || '').toLowerCase();
+    const route = `${nodeLabel(e.source_id)} → ${nodeLabel(e.target_id)}`;
+
+    // The renderer infers a verdict from the condition/label when edge_type does not say
+    // one, so the edge still colours correctly. Only complain when the stored value is
+    // vocabulary nobody recognises — an empty field or a typo. A deliberate flow shape
+    // like `parallel` or `join` is information the author chose to record, and nagging
+    // to overwrite it with `pass` would destroy that for no rendering benefit.
+    if (tone !== 'default' && stored !== tone && !isKnownEdgeType(stored)) {
+      addIssue(e.source_id, 'warning',
+        `Edge ${route} renders as "${tone}" (inferred from its condition/label) but is stored as "${stored || 'unset'}", which is not recognised edge vocabulary. Set edgeType to "${tone}" so the branch verdict is explicit.`);
+    }
+
+    if (!String(e.label || '').trim()) {
+      addIssue(e.source_id, 'warning',
+        `Edge ${route} has no label. Give it one naming the branch, or it renders as an anonymous pill.`);
+    }
+  });
+
   // 3. Check individual node frontmatter & route / skill integrity
   const availableSkillNames = (skills || []).map(s => String(s.name || '').trim().toLowerCase());
 
@@ -371,6 +407,14 @@ export function validateGraphTopology(nodes = [], edges = [], skills = []) {
       errors.forEach(err => {
         addIssue(n.id, 'error', `Frontmatter syntax error in "${n.filename}": ${err.message}`);
       });
+    }
+
+    // An unsubstituted `{{MODEL_X}}` token is not caught by any harness at load time — the
+    // agent just runs on some fallback, or fails at first invocation far from its cause.
+    if (frontmatter && isUnresolvedModel(frontmatter.model)) {
+      addIssue(n.id, 'error',
+        `Agent "${n.filename || n.title}" has an unresolved model placeholder (${frontmatter.model}). ` +
+        `Use a tier — ${MODEL_TIER_NAMES.join(', ')} — so each exporter can translate it.`, 'model');
     }
 
     // Check referenced route targets

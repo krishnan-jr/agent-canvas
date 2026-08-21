@@ -4,6 +4,9 @@
  */
 
 import { parseAgentYaml } from '../validator.js';
+import { classifyEdge } from '../../public/js/edgeSemantics.js';
+import { toClaudeTools, collectMcpServers, buildMcpPlaceholders } from './toolMapping.js';
+import { resolveModel } from '../../public/js/modelMapping.js';
 
 export function transpileToClaudeCode(project, nodes = [], edges = [], linkedSkills = []) {
   const files = [];
@@ -24,7 +27,7 @@ export function transpileToClaudeCode(project, nodes = [], edges = [], linkedSki
     const { frontmatter } = parseAgentYaml(node.content || '');
     const name = node.filename || node.title || 'agent';
     const role = frontmatter.role || 'assistant';
-    const model = frontmatter.model || 'claude-3-5-sonnet';
+    const model = resolveModel(frontmatter.model, 'claude') || 'inherit';
     const desc = frontmatter.description || node.title || 'Specialized agent block';
     const cmdName = name.replace(/\.md$/, '');
     claudeMd += `| \`/${cmdName}\` | \`${role}\` | \`${model}\` | ${desc} |\n`;
@@ -48,11 +51,22 @@ export function transpileToClaudeCode(project, nodes = [], edges = [], linkedSki
       const tgtNode = nodes.find(n => n.id === edge.target_id);
       const srcName = srcNode ? srcNode.filename : edge.source_id;
       const tgtName = tgtNode ? tgtNode.filename : edge.target_id;
-      const edgeType = edge.edge_type || 'default';
+      const edgeType = classifyEdge(edge);
       const label = edge.label || (edgeType === 'pass' ? 'Approved' : (edgeType === 'fail' ? 'Reject & Refine' : 'Next'));
       const retries = edgeType === 'fail' && edge.max_retries ? ` (max retries: ${edge.max_retries})` : '';
 
       claudeMd += `- **${srcName}** $\\rightarrow$ **${tgtName}** [**${edgeType.toUpperCase()}**: ${label}]${retries}\n`;
+    }
+  }
+
+  const declaredMcp = collectMcpServers(nodes, parseAgentYaml);
+  if (declaredMcp.size > 0) {
+    claudeMd += `\n### MCP Servers\n\n`;
+    claudeMd += `These were declared as tools by the agents below and stubbed into \`.mcp.json\`.\n`;
+    claudeMd += `**Replace each \`<...-package>\` placeholder with the server's real launch command before use.**\n\n`;
+    claudeMd += `| Server | Required by |\n| :--- | :--- |\n`;
+    for (const [server, consumers] of declaredMcp) {
+      claudeMd += `| \`${server}\` | ${consumers.map(c => `\`${c}\``).join(', ')} |\n`;
     }
   }
 
@@ -77,11 +91,17 @@ name: ${baseName}
 role: ${frontmatter.role || 'assistant'}
 description: ${frontmatter.description || `Specialized ${baseName} subagent`}
 `;
-    if (frontmatter.tools && Array.isArray(frontmatter.tools)) {
-      agentContent += `allowed-tools: [${frontmatter.tools.join(', ')}]\n`;
+    // Claude Code subagents read `tools:` as a COMMA-SEPARATED STRING. `allowed-tools:`
+    // is slash-command frontmatter and is silently ignored here, which would leave every
+    // subagent running with full default tool access instead of its declared allowlist.
+    if (frontmatter.tools && Array.isArray(frontmatter.tools) && frontmatter.tools.length > 0) {
+      agentContent += `tools: ${toClaudeTools(frontmatter.tools).join(', ')}\n`;
     }
-    if (frontmatter.model) {
-      agentContent += `model: ${frontmatter.model}\n`;
+    // Omitted when the tier resolves to `inherit` — a Claude Code subagent with no `model:`
+    // runs on the session model, which is what a portable template wants.
+    const agentModel = resolveModel(frontmatter.model, 'claude');
+    if (agentModel) {
+      agentContent += `model: ${agentModel}\n`;
     }
     if (frontmatter.skills && Array.isArray(frontmatter.skills) && frontmatter.skills.length > 0) {
       agentContent += `skills: [${frontmatter.skills.join(', ')}]\n`;
@@ -146,21 +166,20 @@ Execute ${baseName} subagent task:
     }
   }
 
-  // 4. Generate .mcp.json for Claude Code CLI integration
-  const mcpConfig = {
-    "mcpServers": {
-      "agent-canvas": {
-        "command": "node",
-        "args": ["src/mcpServer.js"]
-      }
-    }
-  };
-
-  files.push({
-    path: '.mcp.json',
-    content: JSON.stringify(mcpConfig, null, 2),
-    language: 'json'
-  });
+  // 4. Generate .mcp.json — but only for servers the agents actually declare.
+  //
+  // This used to hardcode the agent-canvas server itself, which clobbered whatever MCP
+  // config the target project depended on. agent-canvas is the design tool; exported
+  // agents have no runtime need for it. Servers are instead derived from the non-builtin
+  // entries in each agent's `tools` list.
+  const mcpServers = collectMcpServers(nodes, parseAgentYaml);
+  if (mcpServers.size > 0) {
+    files.push({
+      path: '.mcp.json',
+      content: JSON.stringify({ mcpServers: buildMcpPlaceholders(mcpServers, 'claude') }, null, 2),
+      language: 'json'
+    });
+  }
 
   return files;
 }
