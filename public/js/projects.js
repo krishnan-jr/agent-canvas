@@ -24,7 +24,7 @@ export class ProjectManager {
       <div class="project-modal-card">
         <div class="project-modal-header">
           <div class="project-header-left">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--blue-core)" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
             <div>
@@ -176,7 +176,7 @@ export class ProjectManager {
       card.innerHTML = `
         <div class="project-card-top">
           <div class="project-card-header">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${isCurrent ? '#3b82f6' : '#71717a'}" stroke-width="2">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="stroke: ${isCurrent ? 'var(--blue-core)' : 'var(--text-muted)'}" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
             <div class="project-card-title-group">

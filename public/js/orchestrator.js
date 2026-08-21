@@ -426,7 +426,7 @@ export class OrchestrationRunner {
     }
 
     const isReject = step.verdict === 'REJECTED' || step.verdict === 'USER_REJECTED';
-    const verdictColor = isReject ? '#ef4444' : '#10b981';
+    const verdictColor = isReject ? 'var(--red-core)' : 'var(--emerald-core)';
 
     this.traceDetailPane.innerHTML = `
       <div class="trace-detail-card">
@@ -465,7 +465,7 @@ export class OrchestrationRunner {
         <!-- Linked Skills Section -->
         <div class="trace-section">
           <h4 class="trace-section-title">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             Injected Skill Packages (${(step.linkedSkills || []).length})
           </h4>
           <div class="trace-skills-chips">
@@ -479,7 +479,7 @@ export class OrchestrationRunner {
         <!-- Upstream Input Payload -->
         <div class="trace-section">
           <h4 class="trace-section-title">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#818cf8" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" style="stroke: var(--indigo-core)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
             Upstream Input Payload
           </h4>
           <pre class="trace-code-box"><code>${escapeHtml(step.upstreamPayload || '(Initial trigger payload)')}</code></pre>
@@ -488,7 +488,7 @@ export class OrchestrationRunner {
         <!-- Generated Output -->
         <div class="trace-section">
           <h4 class="trace-section-title">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" style="stroke: var(--emerald-core)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             Generated Agent Output & Verdict
           </h4>
           <pre class="trace-code-box"><code>${escapeHtml(step.output || '')}</code></pre>

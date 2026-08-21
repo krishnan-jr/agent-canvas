@@ -45,7 +45,7 @@ class DialogManager {
       <div class="custom-dialog-card edge-config-card">
         <div class="custom-dialog-header">
           <div class="custom-dialog-icon">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--blue-core)" stroke-width="2">
               <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"/>
             </svg>
           </div>
@@ -112,7 +112,7 @@ class DialogManager {
       <div class="custom-dialog-card dir-browser-card">
         <div class="custom-dialog-header">
           <div class="custom-dialog-icon">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
@@ -207,8 +207,8 @@ class DialogManager {
       this.btnDelete.classList.add('hidden');
       
       this.iconElem.innerHTML = isDanger
-        ? `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ef4444" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`
-        : `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+        ? `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--red-core)" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`
+        : `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--blue-core)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
 
       this.btnConfirm.textContent = confirmText;
       this.btnConfirm.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
@@ -262,7 +262,7 @@ class DialogManager {
       this.inputElem.value = defaultValue;
       this.inputElem.placeholder = placeholder;
       
-      this.iconElem.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
+      this.iconElem.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
 
       this.btnConfirm.textContent = confirmText;
       this.btnConfirm.className = 'btn btn-primary';
@@ -468,7 +468,7 @@ class DialogManager {
         if (!data.directories || data.directories.length === 0) {
           this.dbDirList.innerHTML = `
             <div class="db-empty-state">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#52525e" stroke-width="1.5">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" style="stroke: var(--border-active)" stroke-width="1.5">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               </svg>
               <div class="db-empty-text">No subfolders in this directory</div>
@@ -481,7 +481,7 @@ class DialogManager {
         this.dbDirList.innerHTML = data.directories.map(d => `
           <div class="db-dir-item ${selectedPath === d.path ? 'selected' : ''}" data-path="${d.path}">
             <div class="db-dir-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#38bdf8" stroke-width="2">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               </svg>
             </div>
@@ -625,11 +625,11 @@ class DialogManager {
     
     let iconSvg = '';
     if (type === 'success') {
-      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" style="stroke: var(--emerald-core)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
     } else if (type === 'error') {
-      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" style="stroke: var(--red-core)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
     } else {
-      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+      iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" style="stroke: var(--blue-core)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
     }
 
     toast.innerHTML = `

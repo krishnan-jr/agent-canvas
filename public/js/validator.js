@@ -18,49 +18,49 @@ export const UNIVERSAL_ROLES = [
 export const UNIVERSAL_ROLE_DEFINITIONS = [
   {
     role: 'orchestrator',
-    color: '#38bdf8',
+    color: 'var(--sky-core)',
     label: 'Orchestrator',
     shortDesc: 'Master supervisor coordinating workflows & subagents',
     desc: 'Master supervisor coordinating workflows, scheduling task handoffs, and managing autonomous subagent delegation across harnesses.'
   },
   {
     role: 'assistant',
-    color: '#64748b',
+    color: 'var(--slate-core)',
     label: 'Assistant',
     shortDesc: 'General conversational agent executing interactive queries',
     desc: 'General conversational agent executing interactive queries, explaining concepts, formulating plans, and handling general prompts.'
   },
   {
     role: 'researcher',
-    color: '#818cf8',
+    color: 'var(--indigo-core)',
     label: 'Researcher',
     shortDesc: 'Read-only explorer gathering codebase context & web data',
     desc: 'Read-only explorer gathering codebase context, documentation, external web search data, and architecture knowledge.'
   },
   {
     role: 'evaluator',
-    color: '#10b981',
+    color: 'var(--emerald-core)',
     label: 'Evaluator',
     shortDesc: 'Quality gatekeeper auditing test coverage & guardrails',
     desc: 'Quality gatekeeper verifying test coverage, lint checks, policy compliance, output validation, and safety guardrails.'
   },
   {
     role: 'router',
-    color: '#f59e0b',
+    color: 'var(--amber-core)',
     label: 'Router',
     shortDesc: 'Decision node evaluating conditions & branch transitions',
     desc: 'Decision node evaluating conditional expressions, branching workflow paths, validating pass/fail states, and managing retry budgets.'
   },
   {
     role: 'coder',
-    color: '#a855f7',
+    color: 'var(--violet-core)',
     label: 'Coder',
     shortDesc: 'Implementation engineer writing, editing, & refactoring code',
     desc: 'Implementation engineer focused on writing, editing, refactoring, fixing bugs, and implementing algorithmic changes.'
   },
   {
     role: 'tool',
-    color: '#71717a',
+    color: 'var(--zinc-core)',
     label: 'Tool',
     shortDesc: 'Deterministic utility agent executing discrete bash scripts or tools',
     desc: 'Specialized deterministic utility agent executing discrete bash commands, database queries, build tools, or single API calls.'

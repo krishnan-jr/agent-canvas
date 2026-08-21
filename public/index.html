@@ -8,6 +8,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <script>
+    // Apply the stored theme before first paint so there is no flash.
+    (function () {
+      var mode = localStorage.getItem('agent-canvas:theme') || 'system';
+      var resolved = mode === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        : mode;
+      document.documentElement.setAttribute('data-theme', resolved);
+    })();
+  </script>
 </head>
 <body class="canvas-app">
 
@@ -74,6 +84,8 @@
         Export
       </button>
 
+      <button id="btn-theme-toggle" class="btn btn-secondary btn-icon-only" title="Toggle theme"></button>
+
       <!-- 3-Dot More Actions Menu -->
       <div class="nav-more-menu-wrapper" id="nav-more-menu-wrapper">
         <button id="btn-more-menu" class="btn btn-secondary btn-icon-only" title="More Tools & Actions">
@@ -122,25 +134,25 @@
       <svg class="canvas-connections" id="connections-svg">
         <defs>
           <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#52525e" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--border-active)" />
           </marker>
           <marker id="arrow-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--emerald-core)" />
           </marker>
           <marker id="arrow-fail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--red-core)" />
           </marker>
           <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--sky-core)" />
           </marker>
           <marker id="arrow-active-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--emerald-core)" />
           </marker>
           <marker id="arrow-active-fail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--red-core)" />
           </marker>
           <marker id="arrow-glow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" style="fill: var(--emerald-core)" />
           </marker>
           <!-- Gradient for active pulse -->
           <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -184,7 +196,7 @@
     <!-- Floating AI Copilot Action Button -->
     <button id="btn-floating-copilot" class="floating-copilot-btn" title="AI Copilot Assistant (Natural language pipeline generation)">
       <div class="floating-copilot-icon">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: var(--sky-core)" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
       </div>
       <span class="floating-copilot-label">AI Copilot</span>
     </button>
@@ -224,7 +236,7 @@
     <div class="copilot-header">
       <div class="copilot-header-left">
         <div class="copilot-header-title">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
           <span>AI Copilot</span>
         </div>
         <div class="copilot-model-wrapper">
@@ -297,7 +309,7 @@
     <div id="approval-gate-banner" class="approval-gate-banner hidden">
       <div class="approval-gate-content">
         <div class="approval-gate-title">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: var(--amber-core)" stroke-width="2">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <strong>Decision Checkpoint:</strong> <span id="approval-node-name">Evaluator Gate</span> requires review
@@ -340,7 +352,7 @@
       <div class="modal-header">
         <div class="modal-title-group">
           <div class="modal-filename-row">
-            <svg class="file-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#a5b4fc" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <svg class="file-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: var(--indigo-core)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <input type="text" id="modal-filename" class="modal-filename-input" placeholder="agent-name.md">
           </div>
           <div id="editor-validation-status" class="validation-status-pill valid">
@@ -430,7 +442,7 @@
     <div class="modal-card mcp-modal-card">
       <div class="modal-header">
         <div class="modal-title-group">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
           <h2 class="modal-title">Model Context Protocol (MCP) Server</h2>
           <span class="mcp-status-badge">Active &bull; 25 Tools Available</span>
         </div>

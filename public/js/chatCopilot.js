@@ -254,7 +254,7 @@ export class ChatCopilot {
       if (this.providers.length === 0) {
         welcome.innerHTML = `
           <div class="welcome-badge badge-warning">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="stroke: var(--amber-core)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span>No LLM Provider Configured</span>
           </div>
           <h3>Connect an AI Model</h3>
@@ -269,7 +269,7 @@ export class ChatCopilot {
         const activeName = this.selectedModel ? `${this.selectedModel}` : 'AI Assistant';
         welcome.innerHTML = `
           <div class="welcome-badge">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
             <span>Active: ${activeName}</span>
           </div>
           <h3>What would you like to build?</h3>

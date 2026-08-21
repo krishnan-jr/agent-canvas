@@ -10,6 +10,18 @@ import {
   ROUTING_MODES, DEFAULT_ROUTING_MODE, isRoutingMode,
   pickHandles, portPosition, buildPath, spreadOffsets, handleNormal
 } from './edgeRouting.js';
+import { themeColor } from './theme.js';
+
+/** The minimap paints to a <canvas>, so role colours are read from the theme. */
+const MINIMAP_ROLE_VARS = {
+  orchestrator: '--sky-core',
+  evaluator: '--emerald-core',
+  researcher: '--indigo-core',
+  coder: '--violet-core',
+  router: '--amber-core',
+  tool: '--zinc-core',
+  assistant: '--slate-core',
+};
 
 const ROUTING_STORAGE_KEY = 'agent-canvas:edge-routing';
 
@@ -341,6 +353,8 @@ export class CanvasEngine {
   // --- MINIMAP RADAR ---
 
   initMinimap() {
+    window.addEventListener('themechange', () => this.renderMinimap());
+
     let container = document.getElementById('canvas-minimap-container');
     if (!container) {
       container = document.createElement('div');
@@ -419,15 +433,8 @@ export class CanvasEngine {
 
       const { frontmatter } = parseFrontmatter(node.content || '');
       const role = (frontmatter.role || 'assistant').toLowerCase();
-      let color = '#64748b';
-      if (role === 'orchestrator') color = '#38bdf8';
-      else if (role === 'evaluator') color = '#10b981';
-      else if (role === 'researcher') color = '#818cf8';
-      else if (role === 'coder') color = '#a855f7';
-      else if (role === 'router') color = '#f59e0b';
-      else if (role === 'tool') color = '#71717a';
 
-      ctx.fillStyle = color;
+      ctx.fillStyle = themeColor(MINIMAP_ROLE_VARS[role] || MINIMAP_ROLE_VARS.assistant);
       ctx.beginPath();
       ctx.roundRect(nx, ny, nw, nh, 2);
       ctx.fill();

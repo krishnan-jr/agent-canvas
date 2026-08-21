@@ -30,7 +30,7 @@ export class SkillsManager {
           <!-- Header -->
           <div class="skills-modal-header">
             <div class="skills-header-left">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
                 <path d="M12 6v6M9 9h6"/>
@@ -441,7 +441,7 @@ export class SkillsManager {
         dirElem.innerHTML = `
           <div class="skill-tree-dir-header">
             <span class="skill-tree-branch-guide">${escapeHtml(prefix)}${escapeHtml(branchChar)}</span>
-            <svg class="tree-folder-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#38bdf8" stroke-width="2">
+            <svg class="tree-folder-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
             <span class="skill-tree-dir-name">${escapeHtml(node.name)}/</span>
@@ -463,7 +463,7 @@ export class SkillsManager {
         fileElem.setAttribute('title', node.path);
         fileElem.innerHTML = `
           <span class="skill-tree-branch-guide">${escapeHtml(prefix)}${escapeHtml(branchChar)}</span>
-          <svg class="tree-file-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="${node.isSkillMd ? '#38bdf8' : '#a1a1aa'}" stroke-width="2">
+          <svg class="tree-file-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" style="stroke: ${node.isSkillMd ? 'var(--sky-core)' : 'var(--text-secondary)'}" stroke-width="2">
             <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>
           </svg>
           <span class="skill-tree-file-name ${node.isSkillMd ? 'is-skill-md' : ''}">${escapeHtml(node.name)}</span>
@@ -492,7 +492,7 @@ export class SkillsManager {
 
     workspace.innerHTML = `
       <div class="skill-workspace-empty-view">
-        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#52525e" stroke-width="1.5">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" style="stroke: var(--border-active)" stroke-width="1.5">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
         </svg>
@@ -769,7 +769,7 @@ export class SkillsManager {
         <div class="skills-template-modal-card">
           <div class="template-modal-header">
             <div class="template-modal-title-group">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
               </svg>
               <div>

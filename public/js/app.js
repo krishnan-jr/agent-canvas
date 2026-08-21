@@ -8,6 +8,7 @@ import { SkillsManager } from './skillsManager.js';
 import { ChatCopilot } from './chatCopilot.js';
 import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
 import { ROUTING_MODES } from './edgeRouting.js';
+import { ThemeManager } from './theme.js';
 
 // Pre-configured agent block templates
 const TEMPLATES = {
@@ -434,7 +435,7 @@ class App {
         list.innerHTML = `
           <div class="diagnostic-item item-valid" style="border-color: rgba(16, 185, 129, 0.3); background-color: rgba(16, 185, 129, 0.05);">
             <div class="diagnostic-msg-group">
-              <span class="diagnostic-type-tag" style="color: #10b981;">Topology Validated</span>
+              <span class="diagnostic-type-tag" style="color: var(--emerald-core);">Topology Validated</span>
               <span class="diagnostic-msg-text">All decision loops, route contracts, and skills are healthy.</span>
             </div>
           </div>
@@ -515,7 +516,7 @@ class App {
         `,
         ...UNIVERSAL_ROLE_DEFINITIONS.map(r => `
         <div class="role-dropdown-item" data-role="${r.role}" title="${escapeHtml(r.desc)}">
-          <span class="role-item-badge" style="color: ${r.color}; border-color: ${r.color}66; background-color: ${r.color}15;">${r.role}</span>
+          <span class="role-item-badge" style="color: ${r.color}; border-color: color-mix(in srgb, ${r.color} 40%, transparent); background-color: color-mix(in srgb, ${r.color} 9%, transparent);">${r.role}</span>
           <div class="role-item-info">
             <span class="role-item-title">${r.label}</span>
             <span class="role-item-desc">${escapeHtml(r.shortDesc || r.desc)}</span>
@@ -635,7 +636,7 @@ class App {
 
         if (exists) {
           chip.classList.add('is-present');
-          chip.innerHTML = `<svg class="chip-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> ${field}`;
+          chip.innerHTML = `<svg class="chip-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" style="stroke: var(--emerald-core)" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> ${field}`;
         } else {
           chip.classList.remove('is-present');
           chip.textContent = `+ ${field}`;
@@ -753,7 +754,7 @@ class App {
               <div class="tooltip-roles-grid">
                 ${doc.roleDefinitions.map(r => `
                   <div class="tooltip-role-row">
-                    <span class="tooltip-role-badge" style="color: ${r.color}; border-color: ${r.color}55; background-color: ${r.color}15;">${r.role}</span>
+                    <span class="tooltip-role-badge" style="color: ${r.color}; border-color: color-mix(in srgb, ${r.color} 33%, transparent); background-color: color-mix(in srgb, ${r.color} 9%, transparent);">${r.role}</span>
                     <span class="tooltip-role-desc">${r.desc}</span>
                   </div>
                 `).join('')}
@@ -1294,7 +1295,7 @@ class App {
 
   async loadWorkspaceFiles() {
     const listElem = document.getElementById('workspace-file-list');
-    listElem.innerHTML = '<div style="color:#71717a; padding:10px;">Loading files...</div>';
+    listElem.innerHTML = '<div style="color:var(--text-muted); padding:10px;">Loading files...</div>';
 
     try {
       const projectId = this.currentProjectId;
@@ -1303,12 +1304,12 @@ class App {
       listElem.innerHTML = '';
 
       if (!data.success) {
-        listElem.innerHTML = `<div style="color:#f87171; padding:10px;">Failed to load files: ${data.error || 'Unknown error'}</div>`;
+        listElem.innerHTML = `<div style="color:var(--red-core); padding:10px;">Failed to load files: ${data.error || 'Unknown error'}</div>`;
         return;
       }
 
       if (!data.files || data.files.length === 0) {
-        listElem.innerHTML = '<div style="color:#71717a; padding:10px;">No .md files found in this project</div>';
+        listElem.innerHTML = '<div style="color:var(--text-muted); padding:10px;">No .md files found in this project</div>';
         return;
       }
 
@@ -1318,7 +1319,7 @@ class App {
         const isJs = file.filename.endsWith('.js');
         item.innerHTML = `
           <div class="file-info">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${isJs ? '#f59e0b' : '#a1a1aa'}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: ${isJs ? 'var(--amber-core)' : 'var(--text-secondary)'}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <div>
               <div class="file-name">${file.filename}</div>
               <div class="file-meta">${file.size} bytes • ~${estimateTokens(file.content)} tokens</div>
@@ -1331,14 +1332,14 @@ class App {
             this.canvas.selectNode(matched.id);
             this.openEditorModal(matched);
           } else if (isJs) {
-            dialog.alert(`Execution Runner (${file.filename})`, `<pre style="max-height:350px; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12px; background:#141416; padding:12px; border-radius:6px; border:1px solid #2d2d35; color:#cbd5e1;">${file.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+            dialog.alert(`Execution Runner (${file.filename})`, `<pre style="max-height:350px; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12px; background:var(--bg-canvas); padding:12px; border-radius:6px; border:1px solid var(--border-subtle); color:var(--text-secondary);">${file.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
           }
         });
         listElem.appendChild(item);
       }
     } catch (err) {
       console.error('Failed to load workspace files:', err);
-      listElem.innerHTML = `<div style="color:#f87171; padding:10px;">Error: ${err.message}</div>`;
+      listElem.innerHTML = `<div style="color:var(--red-core); padding:10px;">Error: ${err.message}</div>`;
     }
   }
 
@@ -1387,5 +1388,6 @@ class App {
 
 // Boot application
 window.addEventListener('DOMContentLoaded', () => {
+  window.theme = new ThemeManager();
   window.app = new App();
 });
