@@ -1,7 +1,7 @@
 ---
 role: tool
 type: sqlite_query
-database: canvas.db
+database: canvas.db    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"
 routes:
   - on: pass
     target: researcher-6.md

@@ -199,12 +199,93 @@ class DialogManager {
     this.dbBtnConfirm = document.getElementById('db-btn-confirm');
   }
 
-  confirm({ title = 'Confirm Action', message = 'Are you sure?', confirmText = 'OK', cancelText = 'Cancel', isDanger = true }) {
+  alert(arg1, arg2, arg3) {
+    let title = 'Notice';
+    let message = '';
+    let buttonText = 'OK';
+
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      title = arg1.title || 'Notice';
+      message = arg1.message || '';
+      buttonText = arg1.buttonText || arg1.confirmText || 'OK';
+    } else {
+      if (arg1) title = arg1;
+      if (arg2) message = arg2;
+      if (arg3) buttonText = arg3;
+    }
+
+    return new Promise((resolve) => {
+      this.titleElem.textContent = title;
+      if (typeof message === 'string' && message.includes('<') && message.includes('>')) {
+        this.messageElem.innerHTML = message;
+      } else {
+        this.messageElem.textContent = message;
+      }
+      this.inputWrapper.classList.add('hidden');
+      this.btnDelete.classList.add('hidden');
+      this.btnCancel.classList.add('hidden');
+
+      this.iconElem.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--sky-core)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+
+      this.btnConfirm.textContent = buttonText;
+      this.btnConfirm.className = 'btn btn-primary';
+
+      this.overlay.classList.remove('hidden');
+
+      const cleanup = () => {
+        this.overlay.classList.add('hidden');
+        this.btnCancel.classList.remove('hidden');
+        window.removeEventListener('keydown', handleKey);
+      };
+
+      const handleKey = (e) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          cleanup();
+          resolve(true);
+        }
+      };
+
+      window.addEventListener('keydown', handleKey);
+
+      this.btnConfirm.onclick = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      this.overlay.onclick = (e) => {
+        if (e.target === this.overlay) {
+          cleanup();
+          resolve(true);
+        }
+      };
+
+      setTimeout(() => this.btnConfirm.focus(), 50);
+    });
+  }
+
+  confirm(options = {}) {
+    let title = 'Confirm Action';
+    let message = 'Are you sure?';
+    let confirmText = 'OK';
+    let cancelText = 'Cancel';
+    let isDanger = true;
+
+    if (typeof options === 'string') {
+      message = options;
+    } else if (typeof options === 'object' && options !== null) {
+      if (options.title !== undefined) title = options.title;
+      if (options.message !== undefined) message = options.message;
+      if (options.confirmText !== undefined) confirmText = options.confirmText;
+      if (options.cancelText !== undefined) cancelText = options.cancelText;
+      if (options.isDanger !== undefined) isDanger = options.isDanger;
+    }
+
     return new Promise((resolve) => {
       this.titleElem.textContent = title;
       this.messageElem.textContent = message;
       this.inputWrapper.classList.add('hidden');
       this.btnDelete.classList.add('hidden');
+      this.btnCancel.classList.remove('hidden');
       
       this.iconElem.innerHTML = isDanger
         ? `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="stroke: var(--red-core)" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`
@@ -254,7 +335,25 @@ class DialogManager {
     });
   }
 
-  prompt({ title = 'Edit', message = '', defaultValue = '', placeholder = '', showDelete = false, confirmText = 'Save' }) {
+  prompt(options = {}) {
+    let title = 'Edit';
+    let message = '';
+    let defaultValue = '';
+    let placeholder = '';
+    let showDelete = false;
+    let confirmText = 'Save';
+
+    if (typeof options === 'string') {
+      message = options;
+    } else if (typeof options === 'object' && options !== null) {
+      if (options.title !== undefined) title = options.title;
+      if (options.message !== undefined) message = options.message;
+      if (options.defaultValue !== undefined) defaultValue = options.defaultValue;
+      if (options.placeholder !== undefined) placeholder = options.placeholder;
+      if (options.showDelete !== undefined) showDelete = options.showDelete;
+      if (options.confirmText !== undefined) confirmText = options.confirmText;
+    }
+
     return new Promise((resolve) => {
       this.titleElem.textContent = title;
       this.messageElem.textContent = message;
@@ -267,6 +366,7 @@ class DialogManager {
       this.btnConfirm.textContent = confirmText;
       this.btnConfirm.className = 'btn btn-primary';
       this.btnCancel.textContent = 'Cancel';
+      this.btnCancel.classList.remove('hidden');
 
       if (showDelete) {
         this.btnDelete.classList.remove('hidden');
@@ -281,37 +381,47 @@ class DialogManager {
         window.removeEventListener('keydown', handleKey);
       };
 
+      const handleConfirm = () => {
+        cleanup();
+        const val = this.inputElem.value;
+        if (showDelete) {
+          resolve({ action: 'save', value: val });
+        } else {
+          resolve(val);
+        }
+      };
+
+      const handleCancel = () => {
+        cleanup();
+        if (showDelete) {
+          resolve({ action: 'cancel' });
+        } else {
+          resolve(null);
+        }
+      };
+
+      const handleDelete = () => {
+        cleanup();
+        resolve({ action: 'delete' });
+      };
+
       const handleKey = (e) => {
         if (e.key === 'Escape') {
-          cleanup();
-          resolve({ action: 'cancel' });
+          handleCancel();
         } else if (e.key === 'Enter') {
-          cleanup();
-          resolve({ action: 'save', value: this.inputElem.value });
+          handleConfirm();
         }
       };
 
       window.addEventListener('keydown', handleKey);
 
-      this.btnCancel.onclick = () => {
-        cleanup();
-        resolve({ action: 'cancel' });
-      };
-
-      this.btnConfirm.onclick = () => {
-        cleanup();
-        resolve({ action: 'save', value: this.inputElem.value });
-      };
-
-      this.btnDelete.onclick = () => {
-        cleanup();
-        resolve({ action: 'delete' });
-      };
+      this.btnCancel.onclick = handleCancel;
+      this.btnConfirm.onclick = handleConfirm;
+      this.btnDelete.onclick = handleDelete;
 
       this.overlay.onclick = (e) => {
         if (e.target === this.overlay) {
-          cleanup();
-          resolve({ action: 'cancel' });
+          handleCancel();
         }
       };
 

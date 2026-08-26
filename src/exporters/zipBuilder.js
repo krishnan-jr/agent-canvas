@@ -104,3 +104,177 @@ export function createZipBuffer(files = []) {
 
   return Buffer.concat([...localHeaders, centralDirBuffer, eocd]);
 }
+
+/**
+ * Normalizes extracted ZIP file paths by stripping redundant top-level directory wrappers
+ */
+export function normalizeZipPaths(files = []) {
+  if (!files || files.length === 0) return files;
+
+  // Clean leading slashes or relative prefixes
+  files.forEach(f => {
+    f.file_path = f.file_path.replace(/^[./\\]+/, '').replace(/\\/g, '/');
+  });
+
+  const allParts = files.map(f => f.file_path.split('/').filter(Boolean));
+  if (allParts.length > 0 && allParts.every(parts => parts.length > 1)) {
+    const firstSegment = allParts[0][0];
+    const allShareRoot = allParts.every(parts => parts[0] === firstSegment);
+    if (allShareRoot) {
+      files.forEach(f => {
+        const parts = f.file_path.split('/').filter(Boolean);
+        f.file_path = parts.slice(1).join('/');
+      });
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Pure Node.js Standard ZIP Archive Extractor (Dependency-free using node:zlib)
+ * Accurately parses Central Directory records to support archives with data descriptors (macOS Finder, zip, etc.)
+ */
+export function unzipArchive(buffer) {
+  if (!buffer) return [];
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+
+  if (buf.length < 22) {
+    throw new Error('Invalid ZIP archive: File buffer is too small.');
+  }
+
+  // 1. Locate End of Central Directory (EOCD) signature: 0x06054b50
+  let eocdOffset = -1;
+  const maxSearch = Math.max(0, buf.length - 65557);
+  for (let i = buf.length - 22; i >= maxSearch; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      eocdOffset = i;
+      break;
+    }
+  }
+
+  const files = [];
+
+  if (eocdOffset !== -1) {
+    const totalEntries = buf.readUInt16LE(eocdOffset + 10);
+    const cdSize = buf.readUInt32LE(eocdOffset + 12);
+    const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+
+    let currOffset = cdOffset;
+    for (let i = 0; i < totalEntries && currOffset < eocdOffset; i++) {
+      const sig = buf.readUInt32LE(currOffset);
+      if (sig !== 0x02014b50) break;
+
+      const compMethod = buf.readUInt16LE(currOffset + 10);
+      const compSize = buf.readUInt32LE(currOffset + 20);
+      const uncompSize = buf.readUInt32LE(currOffset + 24);
+      const nameLen = buf.readUInt16LE(currOffset + 28);
+      const extraLen = buf.readUInt16LE(currOffset + 30);
+      const commentLen = buf.readUInt16LE(currOffset + 32);
+      const localHeaderOffset = buf.readUInt32LE(currOffset + 42);
+
+      const fileNameBuf = buf.subarray(currOffset + 46, currOffset + 46 + nameLen);
+      const rawFileName = fileNameBuf.toString('utf-8');
+
+      currOffset += 46 + nameLen + extraLen + commentLen;
+
+      // Filter out directory entries and OS metadata
+      const baseName = rawFileName.split('/').filter(Boolean).pop() || '';
+      if (
+        rawFileName.endsWith('/') ||
+        rawFileName.includes('__MACOSX') ||
+        baseName.startsWith('._') ||
+        baseName === '.DS_Store' ||
+        baseName === 'Thumbs.db'
+      ) {
+        continue;
+      }
+
+      if (localHeaderOffset + 30 > buf.length) continue;
+      const localSig = buf.readUInt32LE(localHeaderOffset);
+      if (localSig !== 0x04034b50) continue;
+
+      const localNameLen = buf.readUInt16LE(localHeaderOffset + 26);
+      const localExtraLen = buf.readUInt16LE(localHeaderOffset + 28);
+      const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen;
+
+      if (dataOffset + compSize > buf.length) continue;
+
+      const compressedBytes = buf.subarray(dataOffset, dataOffset + compSize);
+      let content = '';
+
+      if (compMethod === 0) {
+        // Stored (Uncompressed)
+        content = compressedBytes.toString('utf-8');
+      } else if (compMethod === 8) {
+        // Deflated
+        try {
+          const decompressed = zlib.inflateRawSync(compressedBytes);
+          content = decompressed.toString('utf-8');
+        } catch (err) {
+          console.warn(`[WARN] Failed to decompress zip entry "${rawFileName}":`, err.message);
+          continue;
+        }
+      } else {
+        console.warn(`[WARN] Unsupported compression method ${compMethod} for "${rawFileName}"`);
+        continue;
+      }
+
+      files.push({
+        file_path: rawFileName,
+        content: content || ''
+      });
+    }
+  } else {
+    // Fallback: Scan local file headers if EOCD is absent
+    let offset = 0;
+    while (offset < buf.length - 30) {
+      const sig = buf.readUInt32LE(offset);
+      if (sig === 0x04034b50) {
+        const compMethod = buf.readUInt16LE(offset + 8);
+        const compSize = buf.readUInt32LE(offset + 18);
+        const uncompSize = buf.readUInt32LE(offset + 22);
+        const nameLen = buf.readUInt16LE(offset + 26);
+        const extraLen = buf.readUInt16LE(offset + 28);
+
+        const rawFileName = buf.subarray(offset + 30, offset + 30 + nameLen).toString('utf-8');
+        const dataOffset = offset + 30 + nameLen + extraLen;
+
+        const baseName = rawFileName.split('/').filter(Boolean).pop() || '';
+        if (
+          !rawFileName.endsWith('/') &&
+          !rawFileName.includes('__MACOSX') &&
+          !baseName.startsWith('._') &&
+          baseName !== '.DS_Store' &&
+          compSize > 0 &&
+          dataOffset + compSize <= buf.length
+        ) {
+          const compressedBytes = buf.subarray(dataOffset, dataOffset + compSize);
+          let content = '';
+          if (compMethod === 0) {
+            content = compressedBytes.toString('utf-8');
+          } else if (compMethod === 8) {
+            try {
+              const decompressed = zlib.inflateRawSync(compressedBytes);
+              content = decompressed.toString('utf-8');
+            } catch (err) {
+              console.warn(`[WARN] Fallback decompression failed for "${rawFileName}":`, err.message);
+            }
+          }
+
+          files.push({
+            file_path: rawFileName,
+            content: content || ''
+          });
+        }
+
+        offset = dataOffset + Math.max(compSize, 1);
+      } else {
+        offset++;
+      }
+    }
+  }
+
+  normalizeZipPaths(files);
+  return files;
+}

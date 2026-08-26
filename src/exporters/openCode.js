@@ -56,7 +56,10 @@ export function transpileToOpenCode(project, nodes = [], edges = [], linkedSkill
     const baseName = (node.filename || node.title || 'agent').replace(/\.md$/, '');
     const role = (frontmatter.role || 'assistant').toLowerCase();
     const mode = resolveAgentMode(frontmatter, node);
-    const tools = (frontmatter.tools || []).join(', ') || 'standard';
+    const toolsArr = Array.isArray(frontmatter.tools) 
+      ? frontmatter.tools 
+      : (typeof frontmatter.tools === 'string' ? frontmatter.tools.split(',').map(s => s.trim()).filter(Boolean) : []);
+    const tools = toolsArr.join(', ') || 'standard';
 
     agentsMd += `### \`${baseName}\` (@.opencode/agents/${baseName}.md)\n`;
     agentsMd += `- **Mode**: \`${mode}\`\n`;

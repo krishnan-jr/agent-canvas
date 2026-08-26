@@ -51,6 +51,7 @@ import { transpileProject, SUPPORTED_TARGETS } from './exporters/index.js';
 import { executeWorkflowStream, parseAgentFrontmatter, resumeApprovalSession } from './llmRunner.js';
 import { executeWebSearch, executeFetchPage } from './webFetch.js';
 import { exportProjectBundle, importProjectBundle } from './projectBundle.js';
+import { eventBus } from './eventBus.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -111,7 +112,9 @@ export const MCP_TOOLS = [
   },
   {
     name: 'sync_workspace',
-    description: 'Triggers bidirectional synchronization between the SQLite database and on-disk mirrored .md markdown agent files in ./workspace/.',
+    description:
+      'Triggers manual bidirectional synchronization between the SQLite database and on-disk mirrored .md markdown files in ./workspace/. ' +
+      'Note: create_agent, update_agent, and delete_agent automatically synchronize to disk and broadcast real-time events without requiring this call.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -138,7 +141,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'get_agent',
-    description: 'Retrieves complete markdown content, parsed YAML frontmatter, coordinates, and edge connections for a specific agent.',
+    description: 'Retrieves complete markdown content, parsed YAML frontmatter, coordinates, linked skills, and edge routing connections for a specific agent. This is the canonical source of truth for agent state.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -151,7 +154,7 @@ export const MCP_TOOLS = [
   {
     name: 'create_agent',
     description:
-      'Creates a new universal agent .md block and mirrors it to disk. `content` carries the system prompt; ' +
+      'Creates a new universal agent .md block, persists it to the database, mirrors it directly to disk (./workspace/<project-slug>/<agent>.md), and broadcasts a live real-time update event to connected Canvas UI clients. `content` carries the system prompt; ' +
       'role/description/model/tools/skills are merged into the YAML frontmatter automatically, so you may ' +
       'pass them alongside `content` rather than hand-writing the `---` block.',
     inputSchema: {
@@ -181,7 +184,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'update_agent',
-    description: 'Updates an existing agent block markdown content, title, frontmatter parameters, or canvas position.',
+    description: 'Updates an existing agent block markdown content, title, frontmatter parameters, or canvas position. Automatically persists to SQLite, synchronizes immediately to the mirrored on-disk markdown file (./workspace/<project-slug>/<agent>.md), and broadcasts a live real-time update event to connected Canvas UI clients.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -669,6 +672,7 @@ export async function executeToolCall(toolName, args = {}) {
         name: args.name,
         description: args.description || ''
       });
+      eventBus.broadcast('project_updated', { projectId: project.id, action: 'project_created', project });
       return { success: true, message: `Project '${args.name}' created`, project };
     }
 
@@ -695,6 +699,7 @@ export async function executeToolCall(toolName, args = {}) {
         throw new Error('Cannot delete the default project workspace.');
       }
       deleteProject(args.projectId);
+      eventBus.broadcast('project_updated', { projectId: args.projectId, action: 'project_deleted' });
       return { success: true, message: `Project ${args.projectId} deleted` };
     }
 
@@ -793,6 +798,7 @@ export async function executeToolCall(toolName, args = {}) {
 
       const node = saveNode(nodeData, projectId);
       syncNodeToDisk(node);
+      eventBus.broadcast('graph_updated', { projectId, action: 'node_created', node });
 
       return { success: true, message: `Agent '${args.title}' created successfully`, node };
     }
@@ -832,6 +838,11 @@ export async function executeToolCall(toolName, args = {}) {
 
       const updated = saveNode(updateData, projectId);
       syncNodeToDisk(updated);
+      eventBus.broadcast('node_updated', {
+        projectId,
+        nodeId: updated.id,
+        node: updated
+      });
 
       return { success: true, message: `Agent '${args.nodeId}' updated`, node: updated };
     }
@@ -842,6 +853,11 @@ export async function executeToolCall(toolName, args = {}) {
 
       removeNodeFromDisk(existing);
       deleteNode(args.nodeId);
+      eventBus.broadcast('graph_updated', {
+        projectId,
+        action: 'node_deleted',
+        nodeId: args.nodeId
+      });
 
       return { success: true, message: `Agent '${args.nodeId}' deleted` };
     }
@@ -883,6 +899,12 @@ export async function executeToolCall(toolName, args = {}) {
         max_retries: maxRetries,
         label
       }, projectId);
+
+      eventBus.broadcast('graph_updated', {
+        projectId,
+        action: 'edge_created',
+        edge
+      });
 
       const warnings = [];
       if (!args.edgeType) {
@@ -942,6 +964,12 @@ export async function executeToolCall(toolName, args = {}) {
         label
       }, projectId);
 
+      eventBus.broadcast('graph_updated', {
+        projectId,
+        action: 'edge_updated',
+        edge: updatedEdge
+      });
+
       return {
         success: true,
         message: `Edge '${args.edgeId}' updated: ${label} [${edge_type}]`,
@@ -951,6 +979,11 @@ export async function executeToolCall(toolName, args = {}) {
 
     case 'delete_edge': {
       deleteEdge(args.edgeId);
+      eventBus.broadcast('graph_updated', {
+        projectId,
+        action: 'edge_deleted',
+        edgeId: args.edgeId
+      });
       return { success: true, message: `Edge '${args.edgeId}' deleted` };
     }
 
@@ -1013,6 +1046,11 @@ export async function executeToolCall(toolName, args = {}) {
         });
       });
 
+      eventBus.broadcast('graph_updated', {
+        projectId,
+        action: 'layout_updated'
+      });
+
       return { success: true, message: `Auto-layout arranged ${layoutChanges} nodes across ${layers.length} pipeline layers` };
     }
 
@@ -1061,6 +1099,10 @@ export async function executeToolCall(toolName, args = {}) {
       }
 
       const fullSkill = getSkillById(savedSkill.id);
+      eventBus.broadcast('skills_updated', {
+        action: 'skill_created',
+        skill: fullSkill
+      });
 
       return { success: true, message: `Skill '${args.name}' registered successfully`, skill: fullSkill };
     }
@@ -1070,6 +1112,10 @@ export async function executeToolCall(toolName, args = {}) {
       if (!skill) throw new Error(`Skill '${args.skillId}' not found.`);
 
       deleteSkill(args.skillId);
+      eventBus.broadcast('skills_updated', {
+        action: 'skill_deleted',
+        skillId: args.skillId
+      });
       return { success: true, message: `Skill '${skill.name}' deleted` };
     }
 

@@ -2,7 +2,7 @@
 role: orchestrator
 tools: [file_reader, web_search]
 description: Primary orchestration block for coordinating task dispatch.
-skills: [git-workflow, security-audit]
+skills: [git-workflow, security-audit]    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"    label: "Step flow"
 routes:
   - on: pass
     target: assistant-3.md

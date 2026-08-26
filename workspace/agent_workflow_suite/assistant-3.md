@@ -1,7 +1,7 @@
 ---
 role: assistant
 temperature: 0.7
-tools: [bash, file_writer]
+tools: [bash, file_writer]    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"    label: "Submit for Review"
 routes:
   - on: pass
     target: evaluator-7.md

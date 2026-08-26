@@ -10,6 +10,7 @@ import { ChatCopilot } from './chatCopilot.js';
 import { validateAgentSchema, validateGraphTopology, parseAgentYaml, FIELD_DOCUMENTATION, UNIVERSAL_ROLES, UNIVERSAL_ROLE_DEFINITIONS } from './validator.js';
 import { ROUTING_MODES } from './edgeRouting.js';
 import { ThemeManager } from './theme.js';
+import { EventStream } from './eventStream.js';
 
 // Pre-configured agent block templates
 const TEMPLATES = {
@@ -141,6 +142,7 @@ class App {
     this.importModal = new ImportProjectModal(this);
     this.skillsManager = new SkillsManager(this);
     this.copilot = new ChatCopilot(this);
+    this.eventStream = new EventStream(this);
 
     this.projectManager = new ProjectManager({
       onProjectSelect: (project) => this.switchProject(project)
@@ -151,6 +153,9 @@ class App {
   }
 
   initUI() {
+    // Start real-time live event stream
+    this.eventStream.connect();
+
     // Project Selector Button (Header breadcrumb)
     const btnProjectSelector = document.getElementById('btn-project-selector');
     if (btnProjectSelector) {
@@ -822,6 +827,37 @@ class App {
       });
     }
 
+    // Dirty buffer state for live conflict prevention
+    this.isEditorDirty = false;
+    this.editorOriginalContent = '';
+    this.pendingExternalNodeContent = null;
+
+    const conflictBanner = document.getElementById('editor-conflict-banner');
+    const conflictLoadBtn = document.getElementById('btn-conflict-load');
+    const conflictDismissBtn = document.getElementById('btn-conflict-dismiss');
+
+    if (conflictLoadBtn) {
+      conflictLoadBtn.addEventListener('click', () => {
+        if (this.pendingExternalNodeContent !== null) {
+          textarea.value = this.pendingExternalNodeContent;
+          this.editorOriginalContent = this.pendingExternalNodeContent;
+          this.pendingExternalNodeContent = null;
+          this.isEditorDirty = false;
+          if (conflictBanner) conflictBanner.classList.add('hidden');
+          textarea.dispatchEvent(new Event('input'));
+          dialog.toast('Loaded external changes into editor', 'info');
+        }
+      });
+    }
+
+    if (conflictDismissBtn) {
+      conflictDismissBtn.addEventListener('click', () => {
+        this.pendingExternalNodeContent = null;
+        if (conflictBanner) conflictBanner.classList.add('hidden');
+        dialog.toast('Draft preserved', 'info');
+      });
+    }
+
     document.getElementById('btn-modal-save').addEventListener('click', async () => {
       if (!this.activeEditorNode) return;
       const newFilename = filenameInput.value.trim() || this.activeEditorNode.filename;
@@ -832,6 +868,11 @@ class App {
       this.activeEditorNode.title = newTitle;
       this.activeEditorNode.content = newContent;
 
+      this.isEditorDirty = false;
+      this.editorOriginalContent = newContent;
+      this.pendingExternalNodeContent = null;
+      if (conflictBanner) conflictBanner.classList.add('hidden');
+
       await this.handleNodeUpdate(this.activeEditorNode);
       this.canvas.updateNodeContent(this.activeEditorNode);
       this.updateStats();
@@ -840,12 +881,16 @@ class App {
     });
 
     document.getElementById('btn-modal-close').addEventListener('click', () => {
+      this.pendingExternalNodeContent = null;
+      if (conflictBanner) conflictBanner.classList.add('hidden');
       modal.classList.add('hidden');
       tooltipElem.classList.add('hidden');
     });
 
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
+        this.pendingExternalNodeContent = null;
+        if (conflictBanner) conflictBanner.classList.add('hidden');
         modal.classList.add('hidden');
         tooltipElem.classList.add('hidden');
       }
@@ -1102,10 +1147,16 @@ class App {
 
   async openEditorModal(node) {
     this.activeEditorNode = node;
+    this.editorOriginalContent = node.content || '';
+    this.isEditorDirty = false;
+    this.pendingExternalNodeContent = null;
+
     const modal = document.getElementById('editor-modal');
     const textarea = document.getElementById('modal-editor-textarea');
     const preview = document.getElementById('modal-preview-content');
     const filenameInput = document.getElementById('modal-filename');
+    const conflictBanner = document.getElementById('editor-conflict-banner');
+    if (conflictBanner) conflictBanner.classList.add('hidden');
 
     filenameInput.value = node.filename || `${node.title}.md`;
     textarea.value = node.content || '';
@@ -1118,6 +1169,86 @@ class App {
 
     modal.classList.remove('hidden');
     textarea.dispatchEvent(new Event('input'));
+  }
+
+  // --- REAL-TIME LIVE EVENT HANDLERS ---
+
+  handleLiveNodeUpdated(data) {
+    if (!data || !data.node) return;
+    const { projectId, nodeId, node } = data;
+
+    // Check if node belongs to current project
+    const isCurrentProject = !projectId || projectId === this.currentProjectId;
+    const targetId = nodeId || node.id;
+    const existingIndex = this.nodes.findIndex(n => n.id === targetId || (n.filename && n.filename === node.filename));
+
+    if (existingIndex !== -1 && isCurrentProject) {
+      const updatedNode = { ...this.nodes[existingIndex], ...node };
+      this.nodes[existingIndex] = updatedNode;
+      this.canvas.updateNodeContent(updatedNode);
+      this.runGraphDiagnostics();
+      this.updateStats();
+
+      // Check if this node is currently open in the Deep Editor modal
+      const modal = document.getElementById('editor-modal');
+      const isModalOpen = modal && !modal.classList.contains('hidden');
+      if (isModalOpen && this.activeEditorNode && (this.activeEditorNode.id === updatedNode.id || this.activeEditorNode.filename === updatedNode.filename)) {
+        const textarea = document.getElementById('modal-editor-textarea');
+        const filenameInput = document.getElementById('modal-filename');
+        const conflictBanner = document.getElementById('editor-conflict-banner');
+
+        if (!this.isEditorDirty) {
+          // Clean buffer: automatically refresh in-place
+          this.activeEditorNode = updatedNode;
+          this.editorOriginalContent = updatedNode.content || '';
+          if (textarea) textarea.value = updatedNode.content || '';
+          if (filenameInput) filenameInput.value = updatedNode.filename || `${updatedNode.title}.md`;
+          if (conflictBanner) conflictBanner.classList.add('hidden');
+          if (textarea) textarea.dispatchEvent(new Event('input'));
+          dialog.toast(`Live Sync: "${updatedNode.title || updatedNode.filename}" refreshed from disk / MCP`, 'info');
+        } else {
+          // Dirty buffer: user has unsaved keystrokes, prompt with in-DOM conflict banner
+          this.pendingExternalNodeContent = updatedNode.content || '';
+          if (conflictBanner) conflictBanner.classList.remove('hidden');
+        }
+      }
+    }
+  }
+
+  async handleLiveGraphUpdated(data) {
+    if (!data) return;
+    const { projectId } = data;
+
+    if (!projectId || projectId === this.currentProjectId) {
+      await this.loadCurrentProjectData();
+      const sidebar = document.getElementById('file-sidebar');
+      if (sidebar && !sidebar.classList.contains('hidden')) {
+        this.loadWorkspaceFiles();
+      }
+    }
+  }
+
+  async handleLiveSkillsUpdated(data) {
+    if (this.skillsManager) {
+      await this.skillsManager.fetchSkills();
+    }
+    const textarea = document.getElementById('modal-editor-textarea');
+    if (textarea && this.syncEditorSkillsPicker) {
+      this.syncEditorSkillsPicker(textarea.value);
+    }
+  }
+
+  async handleLiveProjectUpdated(data) {
+    if (!data) return;
+    await this.projectManager.loadProjects();
+
+    if (data.action === 'project_deleted' && data.projectId === this.currentProjectId) {
+      dialog.toast('Current project was deleted, switching to default project', 'warning');
+      const defaultProj = this.projectManager.projects.find(p => p.id === 'project-default') || this.projectManager.projects[0];
+      if (defaultProj) {
+        this.switchProject(defaultProj);
+      }
+    }
   }
 
   // --- PROJECT LIFECYCLE & DATA ---

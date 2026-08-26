@@ -14,6 +14,8 @@ export class SkillsManager {
     this.activeFileId = null;
     this.activeSkillFiles = [];
     this.modalElem = null;
+    this.selectSeq = 0;
+    this.collapsedDirs = new Set();
 
     this.initDOM();
   }
@@ -36,8 +38,8 @@ export class SkillsManager {
                 <path d="M12 6v6M9 9h6"/>
               </svg>
               <div class="skills-header-title-group">
-                <h2 class="skills-title">Skills Library</h2>
-                <span class="skills-subtitle">Modular Agent Capabilities & Runbooks</span>
+                <h2 class="skills-title">Global Skills Library</h2>
+                <span class="skills-subtitle">Modular Agent Capabilities & Runbooks (Shared Across All Projects)</span>
               </div>
             </div>
             <div class="skills-header-right">
@@ -66,7 +68,10 @@ export class SkillsManager {
             <div class="skills-sidebar">
               <div class="skills-search-box">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="skills-search-input" placeholder="Filter skills..." spellcheck="false" />
+                <input type="text" id="skills-search-input" placeholder="Filter global skills..." spellcheck="false" autocomplete="off" />
+                <button type="button" class="btn-icon btn-xs btn-clear-search hidden" id="btn-clear-skills-search" title="Clear filter">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
               <div class="skills-list" id="skills-items-container">
                 <!-- Dynamically populated -->
@@ -115,22 +120,78 @@ export class SkillsManager {
     });
 
     const searchInput = document.getElementById('skills-search-input');
+    const clearBtn = document.getElementById('btn-clear-skills-search');
+
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
-        this.renderSkillsList(e.target.value.trim().toLowerCase());
+        this.renderSkillsList(e.target.value);
+      });
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          searchInput.value = '';
+          this.renderSkillsList('');
+          searchInput.blur();
+        }
       });
     }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.focus();
+        }
+        this.renderSkillsList('');
+      });
+    }
+
+    // Delegated click on skills list container for instant 1-click selection
+    const skillsListContainer = document.getElementById('skills-items-container');
+    if (skillsListContainer) {
+      skillsListContainer.addEventListener('click', (e) => {
+        const item = e.target.closest('.skill-nav-item');
+        if (item && item.dataset.id) {
+          this.selectSkill(item.dataset.id);
+        }
+      });
+    }
+
+    // Modal keyboard shortcuts (Cmd+S / Ctrl+S to save file)
+    this.modalElem.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        const activeTextarea = document.getElementById('skill-file-textarea');
+        if (activeTextarea && this.activeFileId) {
+          e.preventDefault();
+          this.saveFileContent(this.activeFileId, activeTextarea.value);
+        }
+      }
+    });
+  }
+
+  getSearchQuery() {
+    const searchInput = document.getElementById('skills-search-input');
+    return searchInput ? searchInput.value.trim().toLowerCase() : '';
   }
 
   async open() {
     this.modalElem.classList.remove('hidden');
+    const searchInput = document.getElementById('skills-search-input');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+    const clearBtn = document.getElementById('btn-clear-skills-search');
+    if (clearBtn) {
+      clearBtn.classList.add('hidden');
+    }
     await this.fetchSkills();
-    if (this.skills.length > 0 && !this.activeSkillId) {
-      this.selectSkill(this.skills[0].id);
-    } else if (this.activeSkillId) {
-      this.selectSkill(this.activeSkillId);
+    if (this.skills.length > 0) {
+      const validId = this.skills.some(s => s.id === this.activeSkillId) ? this.activeSkillId : this.skills[0].id;
+      await this.selectSkill(validId);
     } else {
       this.renderEmptyWorkspace();
+    }
+    if (searchInput) {
+      setTimeout(() => searchInput.focus(), 50);
     }
   }
 
@@ -144,11 +205,21 @@ export class SkillsManager {
 
   async fetchSkills() {
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(this.getProjectId())}/skills`);
+      const res = await fetch('/api/skills');
       const data = await res.json();
       if (data.success) {
         this.skills = data.skills || [];
+
+        // Reconcile active skill ID
+        if (this.activeSkillId && !this.skills.some(s => s.id === this.activeSkillId)) {
+          this.activeSkillId = this.skills.length > 0 ? this.skills[0].id : null;
+        }
+
         this.renderSkillsList();
+        if (this.app && typeof this.app.syncEditorSkillsPicker === 'function') {
+          const textarea = document.getElementById('modal-editor-textarea') || document.getElementById('editor-textarea');
+          if (textarea) this.app.syncEditorSkillsPicker(textarea.value);
+        }
         return this.skills;
       }
     } catch (e) {
@@ -157,20 +228,49 @@ export class SkillsManager {
     return [];
   }
 
-  renderSkillsList(filter = '') {
+  renderSkillsList(filter = null) {
     const container = document.getElementById('skills-items-container');
     if (!container) return;
 
-    const filtered = this.skills.filter(s => 
-      s.name.toLowerCase().includes(filter) || (s.description && s.description.toLowerCase().includes(filter))
-    );
+    const query = typeof filter === 'string' ? filter.trim().toLowerCase() : this.getSearchQuery();
+
+    const clearBtn = document.getElementById('btn-clear-skills-search');
+    if (clearBtn) {
+      clearBtn.classList.toggle('hidden', !query);
+    }
+
+    const filtered = this.skills.filter(s => {
+      if (!query) return true;
+      const terms = query.split(/\s+/).filter(Boolean);
+      return terms.every(term => {
+        const matchName = s.name && s.name.toLowerCase().includes(term);
+        const matchDesc = s.description && s.description.toLowerCase().includes(term);
+        const matchFiles = s.files && s.files.some(f => 
+          (f.file_path && f.file_path.toLowerCase().includes(term)) ||
+          (f.content && f.content.toLowerCase().includes(term))
+        );
+        return matchName || matchDesc || matchFiles;
+      });
+    });
 
     if (filtered.length === 0) {
       container.innerHTML = `
         <div class="skills-empty-state">
-          <span>No skills found</span>
+          <span>No skills matching "${escapeHtml(query)}"</span>
         </div>
       `;
+      return;
+    }
+
+    // Fast in-place class toggle if list items have not changed (prevents hover blink)
+    const existingItems = container.querySelectorAll('.skill-nav-item');
+    const isSameStructure = existingItems.length === filtered.length && 
+      Array.from(existingItems).every((el, idx) => el.getAttribute('data-id') === filtered[idx].id);
+
+    if (isSameStructure) {
+      existingItems.forEach((el) => {
+        el.classList.toggle('active', el.getAttribute('data-id') === this.activeSkillId);
+      });
       return;
     }
 
@@ -187,15 +287,10 @@ export class SkillsManager {
         </div>
       `;
     }).join('');
-
-    container.querySelectorAll('.skill-nav-item').forEach(item => {
-      item.addEventListener('click', () => {
-        this.selectSkill(item.dataset.id);
-      });
-    });
   }
 
-  async selectSkill(skillId) {
+  async selectSkill(skillId, preferredFileId = null) {
+    const seq = ++this.selectSeq;
     this.activeSkillId = skillId;
     this.renderSkillsList();
 
@@ -209,22 +304,32 @@ export class SkillsManager {
     try {
       const res = await fetch(`/api/skills/${encodeURIComponent(skillId)}/files`);
       const data = await res.json();
+      if (this.selectSeq !== seq) return; // Stale request check
       if (data.success) {
         this.activeSkillFiles = data.files || [];
+      } else {
+        this.activeSkillFiles = skill.files || [];
       }
     } catch (e) {
+      if (this.selectSeq !== seq) return;
       console.error('Error fetching skill files:', e);
       this.activeSkillFiles = skill.files || [];
     }
 
-    // Default to SKILL.md if present, or first file
-    const skillMd = this.activeSkillFiles.find(f => f.file_path.toLowerCase() === 'skill.md');
-    if (skillMd) {
-      this.activeFileId = skillMd.id;
-    } else if (this.activeSkillFiles.length > 0) {
-      this.activeFileId = this.activeSkillFiles[0].id;
+    if (this.selectSeq !== seq) return;
+
+    // Pick active file: preferred -> SKILL.md -> first file -> null
+    if (preferredFileId && this.activeSkillFiles.some(f => f.id === preferredFileId)) {
+      this.activeFileId = preferredFileId;
     } else {
-      this.activeFileId = null;
+      const skillMd = this.activeSkillFiles.find(f => f.file_path.toLowerCase() === 'skill.md');
+      if (skillMd) {
+        this.activeFileId = skillMd.id;
+      } else if (this.activeSkillFiles.length > 0) {
+        this.activeFileId = this.activeSkillFiles[0].id;
+      } else {
+        this.activeFileId = null;
+      }
     }
 
     this.renderWorkspace(skill);
@@ -272,15 +377,13 @@ export class SkillsManager {
               </div>
               <div class="skill-tab-actions">
                 <button type="button" class="btn btn-primary btn-xs" id="btn-save-skill-file">Save File</button>
-                ${activeFile.file_path.toLowerCase() !== 'skill.md' ? `
-                  <button type="button" class="btn-icon btn-xs" id="btn-delete-skill-file" title="Delete this file">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                ` : ''}
+                <button type="button" class="btn-icon btn-xs" id="btn-delete-skill-file" title="Delete this file" style="${activeFile.file_path.toLowerCase() === 'skill.md' ? 'display:none;' : ''}">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
             </div>
             <div class="skill-editor-container">
-              <textarea id="skill-file-textarea" class="skill-file-textarea" spellcheck="false">${escapeHtml(activeFile.content || '')}</textarea>
+              <textarea id="skill-file-textarea" class="skill-file-textarea" placeholder="# Skill Runbook&#10;&#10;Add markdown runbook instructions, agent capabilities, or context here..." spellcheck="false">${escapeHtml(activeFile.content || '')}</textarea>
             </div>
           ` : `
             <div class="skill-editor-empty">
@@ -307,11 +410,22 @@ export class SkillsManager {
     const btnDeleteFile = document.getElementById('btn-delete-skill-file');
     const fileTextarea = document.getElementById('skill-file-textarea');
 
-    if (btnSaveMeta) {
-      btnSaveMeta.addEventListener('click', async () => {
-        const newName = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-        const newDesc = descInput.value.trim();
-        await this.updateSkillMeta(skill.id, newName, newDesc);
+    const handleMetaSave = async () => {
+      if (!nameInput) return;
+      const newName = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      const newDesc = descInput ? descInput.value.trim() : '';
+      await this.updateSkillMeta(skill.id, newName, newDesc);
+    };
+
+    if (btnSaveMeta) btnSaveMeta.addEventListener('click', handleMetaSave);
+    if (nameInput) {
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleMetaSave();
+      });
+    }
+    if (descInput) {
+      descInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleMetaSave();
       });
     }
 
@@ -332,49 +446,96 @@ export class SkillsManager {
 
     if (btnAddFile) {
       btnAddFile.addEventListener('click', async () => {
-        const filePath = await dialog.prompt({
+        const res = await dialog.prompt({
           title: 'Add File to Skill',
           message: 'Enter relative file path (e.g. scripts/run.sh, references/docs.md, assets/template.json):',
           defaultValue: 'scripts/new_script.sh',
           confirmText: 'Create File'
         });
-        if (filePath && filePath.trim()) {
+        const filePath = (typeof res === 'object' && res !== null) ? (res.action === 'save' ? res.value : null) : res;
+        if (filePath && typeof filePath === 'string' && filePath.trim()) {
           await this.createFile(skill.id, filePath.trim());
         }
       });
     }
 
-    if (btnSaveFile && activeFile && fileTextarea) {
+    if (btnSaveFile && fileTextarea) {
       btnSaveFile.addEventListener('click', async () => {
-        await this.saveFileContent(activeFile.id, fileTextarea.value);
+        if (this.activeFileId) {
+          await this.saveFileContent(this.activeFileId, fileTextarea.value);
+        }
       });
     }
 
-    if (btnDeleteFile && activeFile) {
+    if (btnDeleteFile) {
       btnDeleteFile.addEventListener('click', async () => {
-        const confirmed = await dialog.confirm({
-          title: 'Delete File',
-          message: `Are you sure you want to delete "${activeFile.file_path}"?`,
-          confirmText: 'Delete',
-          cancelText: 'Cancel',
-          isDanger: true
-        });
-        if (confirmed) {
-          await this.deleteFile(activeFile.id);
+        if (this.activeFileId) {
+          const currentFile = this.activeSkillFiles.find(f => f.id === this.activeFileId);
+          if (!currentFile) return;
+          const confirmed = await dialog.confirm({
+            title: 'Delete File',
+            message: `Are you sure you want to delete "${currentFile.file_path}"?`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            isDanger: true
+          });
+          if (confirmed) {
+            await this.deleteFile(this.activeFileId);
+          }
         }
       });
     }
   }
 
+  switchActiveFile(fileId) {
+    if (this.activeFileId === fileId) return;
+
+    // Save in-memory changes from current textarea
+    const textarea = document.getElementById('skill-file-textarea');
+    if (textarea && this.activeFileId) {
+      const current = this.activeSkillFiles.find(f => f.id === this.activeFileId);
+      if (current) current.content = textarea.value;
+    }
+
+    this.activeFileId = fileId;
+    const targetFile = this.activeSkillFiles.find(f => f.id === fileId);
+    if (!targetFile) return;
+
+    // Update active tab label
+    const tabName = document.querySelector('.tab-filename');
+    if (tabName) tabName.textContent = targetFile.file_path;
+
+    // Update delete button visibility (hidden for SKILL.md)
+    const btnDelete = document.getElementById('btn-delete-skill-file');
+    if (btnDelete) {
+      btnDelete.style.display = targetFile.file_path.toLowerCase() === 'skill.md' ? 'none' : '';
+    }
+
+    // Update textarea content
+    if (textarea) {
+      textarea.value = targetFile.content || '';
+    }
+
+    // Update tree nodes active highlight
+    const treeContainer = document.getElementById('skill-tree-list-container');
+    if (treeContainer) {
+      treeContainer.querySelectorAll('.skill-tree-file-node').forEach(node => {
+        node.classList.toggle('active', node.getAttribute('data-id') === fileId);
+      });
+    }
+  }
+
   buildSkillFileTree(files) {
-    const root = { name: '', isDir: true, children: [] };
+    const root = { name: '', path: '', isDir: true, children: [] };
 
     files.forEach(file => {
       const parts = file.file_path.split('/').filter(Boolean);
       let curr = root;
+      let accumPath = '';
 
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
+        accumPath = accumPath ? `${accumPath}/${part}` : part;
         const isFile = (i === parts.length - 1);
 
         if (isFile) {
@@ -391,6 +552,7 @@ export class SkillsManager {
           if (!dirNode) {
             dirNode = {
               name: part,
+              path: accumPath,
               isDir: true,
               children: []
             };
@@ -436,8 +598,9 @@ export class SkillsManager {
       const nextPrefix = prefix + (isLast ? '    ' : '│   ');
 
       if (node.isDir) {
+        const isCollapsed = this.collapsedDirs.has(node.path);
         const dirElem = document.createElement('div');
-        dirElem.className = 'skill-tree-dir-node';
+        dirElem.className = `skill-tree-dir-node ${isCollapsed ? 'collapsed' : ''}`;
         dirElem.innerHTML = `
           <div class="skill-tree-dir-header">
             <span class="skill-tree-branch-guide">${escapeHtml(prefix)}${escapeHtml(branchChar)}</span>
@@ -448,6 +611,17 @@ export class SkillsManager {
           </div>
           <div class="skill-tree-dir-children"></div>
         `;
+
+        const dirHeader = dirElem.querySelector('.skill-tree-dir-header');
+        dirHeader.addEventListener('click', () => {
+          const nowCollapsed = dirElem.classList.toggle('collapsed');
+          if (nowCollapsed) {
+            this.collapsedDirs.add(node.path);
+          } else {
+            this.collapsedDirs.delete(node.path);
+          }
+        });
+
         container.appendChild(dirElem);
         const childrenContainer = dirElem.querySelector('.skill-tree-dir-children');
 
@@ -471,8 +645,7 @@ export class SkillsManager {
         `;
 
         fileElem.addEventListener('click', () => {
-          this.activeFileId = node.id;
-          this.renderWorkspace(skill);
+          this.switchActiveFile(node.id);
         });
 
         container.appendChild(fileElem);
@@ -508,18 +681,20 @@ export class SkillsManager {
   }
 
   async promptCreateSkill() {
-    const name = await dialog.prompt({
+    const res = await dialog.prompt({
       title: 'New Skill Package',
-      message: 'Enter a lowercase identifier for this skill (e.g. security-audit, git-workflow, deploy-runner):',
+      message: 'Enter a lowercase identifier for this global skill (e.g. security-audit, git-workflow, deploy-runner):',
       defaultValue: 'new-skill',
       confirmText: 'Create Skill'
     });
 
-    if (!name || !name.trim()) return;
+    const name = (typeof res === 'object' && res !== null) ? (res.action === 'save' ? res.value : null) : res;
+
+    if (!name || typeof name !== 'string' || !name.trim()) return;
     const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
 
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(this.getProjectId())}/skills`, {
+      const response = await fetch('/api/skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -527,10 +702,13 @@ export class SkillsManager {
           description: `Standardized instructions for ${cleanName}`
         })
       });
-      const data = await res.json();
+      const data = await response.json();
       if (data.success && data.skill) {
         await this.fetchSkills();
-        this.selectSkill(data.skill.id);
+        await this.selectSkill(data.skill.id);
+        dialog.toast(`Skill "${data.skill.name}" created`, 'success');
+      } else {
+        dialog.toast(data.error || 'Failed to create skill package', 'error');
       }
     } catch (e) {
       console.error('Error creating skill:', e);
@@ -548,7 +726,8 @@ export class SkillsManager {
       const data = await res.json();
       if (data.success) {
         await this.fetchSkills();
-        this.selectSkill(skillId);
+        await this.selectSkill(skillId, this.activeFileId);
+        dialog.toast('Skill metadata saved', 'success');
       }
     } catch (e) {
       console.error('Error updating skill meta:', e);
@@ -563,12 +742,14 @@ export class SkillsManager {
       const data = await res.json();
       if (data.success) {
         this.activeSkillId = null;
+        this.activeFileId = null;
         await this.fetchSkills();
         if (this.skills.length > 0) {
-          this.selectSkill(this.skills[0].id);
+          await this.selectSkill(this.skills[0].id);
         } else {
           this.renderEmptyWorkspace();
         }
+        dialog.toast('Skill package deleted', 'info');
       }
     } catch (e) {
       console.error('Error deleting skill:', e);
@@ -587,10 +768,8 @@ export class SkillsManager {
       });
       const data = await res.json();
       if (data.success && data.file) {
-        await this.selectSkill(skillId);
-        this.activeFileId = data.file.id;
-        const skill = this.skills.find(s => s.id === skillId);
-        if (skill) this.renderWorkspace(skill);
+        await this.selectSkill(skillId, data.file.id);
+        dialog.toast(`Created "${filePath}"`, 'success');
       }
     } catch (e) {
       console.error('Error creating file:', e);
@@ -624,6 +803,7 @@ export class SkillsManager {
             saveBtn.classList.remove('btn-accent');
           }, 1500);
         }
+        dialog.toast(`Saved "${file.file_path}"`, 'success');
       }
     } catch (e) {
       console.error('Error saving file:', e);
@@ -638,6 +818,7 @@ export class SkillsManager {
       const data = await res.json();
       if (data.success) {
         await this.selectSkill(this.activeSkillId);
+        dialog.toast('File deleted', 'info');
       }
     } catch (e) {
       console.error('Error deleting file:', e);
@@ -645,34 +826,47 @@ export class SkillsManager {
   }
 
   /**
-   * Client-side simple ZIP unpacker using browser ArrayBuffer / DecompressionStream
+   * ZIP package upload with Central Directory extraction and server-side fallback
    */
   async handleZipUpload(file) {
     const skillName = file.name.replace(/\.zip$/i, '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     
     try {
       const buffer = await file.arrayBuffer();
-      const extractedFiles = await this.parseZipBuffer(buffer);
-
-      if (extractedFiles.length === 0) {
-        await dialog.alert({ title: 'Invalid ZIP', message: 'No valid files could be read from the uploaded ZIP archive.' });
-        return;
+      let extractedFiles = [];
+      try {
+        extractedFiles = await this.parseZipBuffer(buffer);
+      } catch (parseErr) {
+        console.warn('Client-side ZIP parsing error, relying on server decompression:', parseErr);
       }
 
-      const res = await fetch(`/api/projects/${encodeURIComponent(this.getProjectId())}/skills/upload`, {
+      // Convert buffer to base64 for guaranteed server-side node:zlib decompression
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const zipBase64 = btoa(binary);
+
+      const res = await fetch('/api/skills/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: skillName,
           description: `Imported skill package (${file.name})`,
-          files: extractedFiles
+          files: extractedFiles,
+          zipBase64: zipBase64
         })
       });
 
       const data = await res.json();
       if (data.success && data.skill) {
         await this.fetchSkills();
-        this.selectSkill(data.skill.id);
+        await this.selectSkill(data.skill.id);
+        dialog.toast(`Imported skill package "${data.skill.name}"`, 'success');
+      } else {
+        throw new Error(data.error || 'Failed to process skill ZIP archive.');
       }
     } catch (e) {
       console.error('Error processing ZIP upload:', e);
@@ -681,68 +875,164 @@ export class SkillsManager {
   }
 
   /**
-   * Minimal dependency-free PKZIP local header parser for text files
+   * Standard Central Directory PKZIP parser for client-side extraction
    */
   async parseZipBuffer(arrayBuffer) {
     const view = new DataView(arrayBuffer);
+    const byteLength = arrayBuffer.byteLength;
+    if (byteLength < 22) return [];
+
+    // 1. Locate End of Central Directory Record (EOCD) signature: 0x06054b50
+    let eocdOffset = -1;
+    const maxSearch = Math.max(0, byteLength - 65557);
+    for (let i = byteLength - 22; i >= maxSearch; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) {
+        eocdOffset = i;
+        break;
+      }
+    }
+
     const files = [];
-    let offset = 0;
 
-    while (offset < arrayBuffer.byteLength - 4) {
-      const sig = view.getUint32(offset, true);
-      if (sig === 0x04034b50) { // Local File Header Signature
-        const compMethod = view.getUint16(offset + 8, true);
-        const compSize = view.getUint32(offset + 18, true);
-        const uncompSize = view.getUint32(offset + 22, true);
-        const nameLen = view.getUint16(offset + 26, true);
-        const extraLen = view.getUint16(offset + 28, true);
+    if (eocdOffset !== -1) {
+      const totalEntries = view.getUint16(eocdOffset + 10, true);
+      const cdOffset = view.getUint32(eocdOffset + 16, true);
+      let currOffset = cdOffset;
 
-        const nameBytes = new Uint8Array(arrayBuffer, offset + 30, nameLen);
-        const rawFileName = new TextDecoder().decode(nameBytes);
+      for (let i = 0; i < totalEntries && currOffset < eocdOffset; i++) {
+        if (view.getUint32(currOffset, true) !== 0x02014b50) break;
 
-        const dataOffset = offset + 30 + nameLen + extraLen;
+        const compMethod = view.getUint16(currOffset + 10, true);
+        const compSize = view.getUint32(currOffset + 20, true);
+        const uncompSize = view.getUint32(currOffset + 24, true);
+        const nameLen = view.getUint16(currOffset + 28, true);
+        const extraLen = view.getUint16(currOffset + 30, true);
+        const commentLen = view.getUint16(currOffset + 32, true);
+        const localHeaderOffset = view.getUint32(currOffset + 42, true);
 
-        // Skip directories and macOS __MACOSX metadata
-        if (!rawFileName.endsWith('/') && !rawFileName.includes('__MACOSX') && !rawFileName.startsWith('.')) {
-          // Normalize clean relative path inside skill
-          let cleanPath = rawFileName;
-          // Strip top-level root folder if all files are inside a parent folder
-          const parts = cleanPath.split('/');
-          if (parts.length > 1 && parts[0].toLowerCase().includes('skill')) {
-            cleanPath = parts.slice(1).join('/');
-          }
+        const nameBytes = new Uint8Array(arrayBuffer, currOffset + 46, nameLen);
+        const rawFileName = new TextDecoder('utf-8').decode(nameBytes);
 
-          let content = '';
-          if (compMethod === 0) { // Stored (Uncompressed)
-            const fileBytes = new Uint8Array(arrayBuffer, dataOffset, uncompSize);
-            content = new TextDecoder('utf-8', { fatal: false }).decode(fileBytes);
-          } else if (compMethod === 8) { // Deflated
-            try {
-              const compBytes = new Uint8Array(arrayBuffer, dataOffset, compSize);
-              if (typeof DecompressionStream !== 'undefined') {
-                const ds = new DecompressionStream('deflate-raw');
-                const writer = ds.writable.getWriter();
-                writer.write(compBytes);
-                writer.close();
-                const response = new Response(ds.readable);
-                content = await response.text();
-              }
-            } catch (decompErr) {
-              console.warn(`Could not decompress ${rawFileName}:`, decompErr);
+        currOffset += 46 + nameLen + extraLen + commentLen;
+
+        const baseName = rawFileName.split('/').filter(Boolean).pop() || '';
+        if (
+          rawFileName.endsWith('/') ||
+          rawFileName.includes('__MACOSX') ||
+          baseName.startsWith('._') ||
+          baseName === '.DS_Store' ||
+          baseName === 'Thumbs.db'
+        ) {
+          continue;
+        }
+
+        if (localHeaderOffset + 30 > byteLength) continue;
+        if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) continue;
+
+        const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+        const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+        const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen;
+
+        if (dataOffset + compSize > byteLength) continue;
+
+        let content = '';
+        if (compMethod === 0) {
+          const fileBytes = new Uint8Array(arrayBuffer, dataOffset, uncompSize || compSize);
+          content = new TextDecoder('utf-8', { fatal: false }).decode(fileBytes);
+        } else if (compMethod === 8) {
+          try {
+            const compBytes = new Uint8Array(arrayBuffer, dataOffset, compSize);
+            if (typeof DecompressionStream !== 'undefined') {
+              const ds = new DecompressionStream('deflate-raw');
+              const stream = new Response(compBytes).body.pipeThrough(ds);
+              content = await new Response(stream).text();
             }
-          }
-
-          if (content !== undefined) {
-            files.push({
-              file_path: cleanPath,
-              content: content
-            });
+          } catch (decompErr) {
+            console.warn(`Could not decompress ${rawFileName}:`, decompErr);
           }
         }
 
-        offset = dataOffset + compSize;
-      } else {
-        offset++;
+        files.push({
+          file_path: rawFileName,
+          content: content || ''
+        });
+      }
+    } else {
+      // Fallback to local headers scan
+      let offset = 0;
+      while (offset < byteLength - 30) {
+        const sig = view.getUint32(offset, true);
+        if (sig === 0x04034b50) {
+          const compMethod = view.getUint16(offset + 8, true);
+          const compSize = view.getUint32(offset + 18, true);
+          const uncompSize = view.getUint32(offset + 22, true);
+          const nameLen = view.getUint16(offset + 26, true);
+          const extraLen = view.getUint16(offset + 28, true);
+
+          const nameBytes = new Uint8Array(arrayBuffer, offset + 30, nameLen);
+          const rawFileName = new TextDecoder().decode(nameBytes);
+          const dataOffset = offset + 30 + nameLen + extraLen;
+
+          const baseName = rawFileName.split('/').filter(Boolean).pop() || '';
+          if (
+            !rawFileName.endsWith('/') &&
+            !rawFileName.includes('__MACOSX') &&
+            !baseName.startsWith('._') &&
+            baseName !== '.DS_Store' &&
+            compSize > 0 &&
+            dataOffset + compSize <= byteLength
+          ) {
+            let content = '';
+            if (compMethod === 0) {
+              const fileBytes = new Uint8Array(arrayBuffer, dataOffset, uncompSize || compSize);
+              content = new TextDecoder('utf-8', { fatal: false }).decode(fileBytes);
+            } else if (compMethod === 8) {
+              try {
+                const compBytes = new Uint8Array(arrayBuffer, dataOffset, compSize);
+                if (typeof DecompressionStream !== 'undefined') {
+                  const ds = new DecompressionStream('deflate-raw');
+                  const stream = new Response(compBytes).body.pipeThrough(ds);
+                  content = await new Response(stream).text();
+                }
+              } catch (decompErr) {
+                console.warn(`Could not decompress ${rawFileName}:`, decompErr);
+              }
+            }
+
+            files.push({
+              file_path: rawFileName,
+              content: content || ''
+            });
+          }
+
+          offset = dataOffset + Math.max(compSize, 1);
+        } else {
+          offset++;
+        }
+      }
+    }
+
+    this.normalizeExtractedPaths(files);
+    return files;
+  }
+
+  normalizeExtractedPaths(files = []) {
+    if (!files || files.length === 0) return files;
+
+    // Clean relative slashes
+    files.forEach(f => {
+      f.file_path = f.file_path.replace(/^[./\\]+/, '').replace(/\\/g, '/');
+    });
+
+    const allParts = files.map(f => f.file_path.split('/').filter(Boolean));
+    if (allParts.length > 0 && allParts.every(parts => parts.length > 1)) {
+      const firstSegment = allParts[0][0];
+      const allShareRoot = allParts.every(parts => parts[0] === firstSegment);
+      if (allShareRoot) {
+        files.forEach(f => {
+          const parts = f.file_path.split('/').filter(Boolean);
+          f.file_path = parts.slice(1).join('/');
+        });
       }
     }
 
@@ -817,7 +1107,7 @@ export class SkillsManager {
           btn.disabled = true;
           btn.textContent = 'Instantiating...';
           try {
-            const createRes = await fetch(`/api/projects/${encodeURIComponent(this.getProjectId())}/skills/from-template`, {
+            const createRes = await fetch('/api/skills/from-template', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ templateName })
@@ -826,7 +1116,8 @@ export class SkillsManager {
             if (createData.success && createData.skill) {
               modal.remove();
               await this.fetchSkills();
-              this.selectSkill(createData.skill.id);
+              await this.selectSkill(createData.skill.id);
+              dialog.toast(`Instantiated template "${templateName}"`, 'success');
             } else {
               throw new Error(createData.error || 'Failed to instantiate template');
             }

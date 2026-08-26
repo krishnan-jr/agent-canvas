@@ -1,7 +1,7 @@
 ---
 role: assistant
 temperature: 0.7
-tools: [bash, file_writer]
+tools: [bash, file_writer]    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"    label: "Escalate Priority"
 routes:
   - on: pass
     target: assistant-2.md

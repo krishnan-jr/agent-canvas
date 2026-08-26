@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test": "node --test test/**/*.test.js",
     "mcp": "node src/mcpServer.js",
     "docs:dev": "vitepress dev docs --port 5173",
     "docs:build": "vitepress build docs",

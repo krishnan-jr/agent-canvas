@@ -151,6 +151,12 @@ export function getProjectById(id) {
   return stmt.get(id);
 }
 
+export function getProjectBySlug(slug) {
+  if (!slug) return null;
+  const stmt = db.prepare(`SELECT * FROM projects WHERE slug = ? OR id = ?`);
+  return stmt.get(slug, slug);
+}
+
 export function createProject({ id, name, description = '' }) {
   const now = Date.now();
   const projectId = id || `project-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
@@ -202,7 +208,8 @@ export function getNodeById(id) {
 export function saveNode(node, projectId = 'project-default') {
   const now = Date.now();
   const targetProjectId = node.project_id || projectId;
-  const existing = getNodeById(node.id);
+  const id = node.id || `node-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const existing = node.id ? getNodeById(node.id) : null;
 
   if (existing) {
     const stmt = db.prepare(`
@@ -231,7 +238,7 @@ export function saveNode(node, projectId = 'project-default') {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      node.id,
+      id,
       targetProjectId,
       node.filename || `${node.title || 'agent'}.md`,
       node.title || 'Agent Block',
@@ -245,7 +252,7 @@ export function saveNode(node, projectId = 'project-default') {
       now
     );
     db.prepare(`UPDATE projects SET updated_at = ? WHERE id = ?`).run(now, targetProjectId);
-    return getNodeById(node.id);
+    return getNodeById(id);
   }
 }
 
@@ -278,12 +285,13 @@ export function getOutgoingEdgesForNode(nodeId) {
 export function saveEdge(edge, projectId = 'project-default') {
   const now = Date.now();
   const targetProjectId = edge.project_id || projectId;
+  const id = edge.id || `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO edges (id, project_id, source_id, target_id, source_handle, target_handle, edge_type, condition, max_retries, label, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
-    edge.id,
+    id,
     targetProjectId,
     edge.source_id,
     edge.target_id,
@@ -297,7 +305,7 @@ export function saveEdge(edge, projectId = 'project-default') {
   );
   db.prepare(`UPDATE projects SET updated_at = ? WHERE id = ?`).run(now, targetProjectId);
   const getStmt = db.prepare(`SELECT * FROM edges WHERE id = ?`);
-  return getStmt.get(edge.id);
+  return getStmt.get(id);
 }
 
 export function deleteEdge(id) {
@@ -305,11 +313,11 @@ export function deleteEdge(id) {
   return stmt.run(id);
 }
 
-// --- SKILL HELPERS ---
+// --- SKILL HELPERS (GLOBAL SKILLS CATALOG) ---
 
-export function getSkillsByProject(projectId = 'project-default') {
-  const stmt = db.prepare(`SELECT * FROM skills WHERE project_id = ? ORDER BY created_at ASC`);
-  const skills = stmt.all(projectId);
+export function getAllSkills() {
+  const stmt = db.prepare(`SELECT * FROM skills ORDER BY created_at ASC`);
+  const skills = stmt.all();
   return skills.map(s => {
     const files = getSkillFiles(s.id);
     return {
@@ -317,6 +325,10 @@ export function getSkillsByProject(projectId = 'project-default') {
       files
     };
   });
+}
+
+export function getSkillsByProject(projectId = 'project-default') {
+  return getAllSkills();
 }
 
 export function getSkillById(id) {
@@ -327,9 +339,10 @@ export function getSkillById(id) {
   return skill;
 }
 
-export function getSkillByName(projectId, name) {
-  const stmt = db.prepare(`SELECT * FROM skills WHERE project_id = ? AND name = ?`);
-  const skill = stmt.get(projectId, name);
+export function getSkillByName(nameOrProjectId, maybeName) {
+  const targetName = (maybeName !== undefined ? maybeName : nameOrProjectId || '').trim().toLowerCase();
+  const stmt = db.prepare(`SELECT * FROM skills WHERE LOWER(name) = LOWER(?)`);
+  const skill = stmt.get(targetName);
   if (!skill) return null;
   skill.files = getSkillFiles(skill.id);
   return skill;
@@ -337,28 +350,33 @@ export function getSkillByName(projectId, name) {
 
 export function saveSkill(skill, projectId = 'project-default') {
   const now = Date.now();
-  const targetProjectId = skill.project_id || projectId;
+  let targetProjectId = skill.project_id || projectId || 'project-default';
+  if (targetProjectId === 'global' || !db.prepare(`SELECT id FROM projects WHERE id = ?`).get(targetProjectId)) {
+    targetProjectId = 'project-default';
+  }
   const id = skill.id || `skill-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const cleanName = (skill.name || 'skill').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
 
-  const existing = db.prepare(`SELECT * FROM skills WHERE id = ?`).get(id);
+  const existing = db.prepare(`SELECT * FROM skills WHERE id = ? OR LOWER(name) = LOWER(?)`).get(id, cleanName);
 
   if (existing) {
     db.prepare(`
       UPDATE skills 
       SET name = ?, description = ?, updated_at = ?
       WHERE id = ?
-    `).run(skill.name, skill.description || '', now, id);
+    `).run(cleanName, skill.description !== undefined ? skill.description : existing.description, now, existing.id);
+    const updatedSkill = getSkillById(existing.id);
+    syncSkillToDisk(updatedSkill);
+    return updatedSkill;
   } else {
     db.prepare(`
       INSERT INTO skills (id, project_id, name, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, targetProjectId, skill.name, skill.description || '', now, now);
+    `).run(id, targetProjectId, cleanName, skill.description || '', now, now);
+    const newSkill = getSkillById(id);
+    syncSkillToDisk(newSkill);
+    return newSkill;
   }
-
-  db.prepare(`UPDATE projects SET updated_at = ? WHERE id = ?`).run(now, targetProjectId);
-  const updatedSkill = getSkillById(id);
-  syncSkillToDisk(updatedSkill, targetProjectId);
-  return updatedSkill;
 }
 
 export function deleteSkill(id) {
@@ -366,12 +384,11 @@ export function deleteSkill(id) {
   if (!skill) return false;
 
   // Delete from disk
-  deleteSkillFromDisk(skill, skill.project_id);
+  deleteSkillFromDisk(skill);
 
   // Delete files and skill record
   db.prepare(`DELETE FROM skill_files WHERE skill_id = ?`).run(id);
   db.prepare(`DELETE FROM skills WHERE id = ?`).run(id);
-  db.prepare(`UPDATE projects SET updated_at = ? WHERE id = ?`).run(Date.now(), skill.project_id);
   return true;
 }
 
@@ -406,6 +423,8 @@ export function saveSkillFile(file) {
         SET content = ?, is_binary = ?, updated_at = ?
         WHERE id = ?
       `).run(file.content, file.is_binary ? 1 : 0, now, samePath.id);
+      const skill = getSkillById(file.skill_id);
+      if (skill) syncSkillToDisk(skill);
       return getSkillFileById(samePath.id);
     }
 
@@ -418,7 +437,7 @@ export function saveSkillFile(file) {
   const skill = getSkillById(file.skill_id);
   if (skill) {
     db.prepare(`UPDATE skills SET updated_at = ? WHERE id = ?`).run(now, skill.id);
-    syncSkillToDisk(skill, skill.project_id);
+    syncSkillToDisk(skill);
   }
 
   return getSkillFileById(id);
@@ -433,23 +452,19 @@ export function deleteSkillFile(fileId) {
 
   if (skill) {
     // Delete file from disk
-    const project = getProjectById(skill.project_id);
-    if (project) {
-      const diskPath = path.join(WORKSPACE_DIR, project.slug, 'skills', skill.name, file.file_path);
-      if (fs.existsSync(diskPath)) {
-        try { fs.unlinkSync(diskPath); } catch (e) {}
-      }
+    const diskPath = path.join(WORKSPACE_DIR, 'skills', skill.name, file.file_path);
+    if (fs.existsSync(diskPath)) {
+      try { fs.unlinkSync(diskPath); } catch (e) {}
     }
-    syncSkillToDisk(skill, skill.project_id);
+    syncSkillToDisk(skill);
   }
   return true;
 }
 
-export function syncSkillToDisk(skill, projectId = 'project-default') {
-  const project = getProjectById(projectId);
-  if (!project || !skill) return;
+export function syncSkillToDisk(skill) {
+  if (!skill || !skill.name) return;
 
-  const skillDir = path.join(WORKSPACE_DIR, project.slug, 'skills', skill.name);
+  const skillDir = path.join(WORKSPACE_DIR, 'skills', skill.name);
   if (!fs.existsSync(skillDir)) {
     fs.mkdirSync(skillDir, { recursive: true });
   }
@@ -461,15 +476,24 @@ export function syncSkillToDisk(skill, projectId = 'project-default') {
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
     }
+
+    if (fs.existsSync(fullPath)) {
+      try {
+        const diskContent = fs.readFileSync(fullPath, 'utf8');
+        if (diskContent === (f.content || '')) {
+          continue;
+        }
+      } catch (e) {}
+    }
+
     fs.writeFileSync(fullPath, f.content || '', 'utf8');
   }
 }
 
-export function deleteSkillFromDisk(skill, projectId = 'project-default') {
-  const project = getProjectById(projectId);
-  if (!project || !skill) return;
+export function deleteSkillFromDisk(skill) {
+  if (!skill || !skill.name) return;
 
-  const skillDir = path.join(WORKSPACE_DIR, project.slug, 'skills', skill.name);
+  const skillDir = path.join(WORKSPACE_DIR, 'skills', skill.name);
   if (fs.existsSync(skillDir)) {
     try {
       fs.rmSync(skillDir, { recursive: true, force: true });
@@ -479,10 +503,10 @@ export function deleteSkillFromDisk(skill, projectId = 'project-default') {
   }
 }
 
-export function syncAllSkillsToDisk(projectId = 'project-default') {
-  const skills = getSkillsByProject(projectId);
+export function syncAllSkillsToDisk() {
+  const skills = getAllSkills();
   for (const s of skills) {
-    syncSkillToDisk(s, projectId);
+    syncSkillToDisk(s);
   }
 }
 
@@ -633,6 +657,33 @@ echo "Current branch: $CURRENT_BRANCH"
 `
     });
     console.log('[INFO] Seeded default git-workflow skill.');
+  }
+
+  // Deduplicate existing duplicate skills by name if any (keep richest / most recent)
+  try {
+    const allSkills = db.prepare(`SELECT * FROM skills ORDER BY updated_at DESC, created_at DESC`).all();
+    const seenSkillNames = new Map();
+    for (const s of allSkills) {
+      const key = s.name.toLowerCase();
+      if (seenSkillNames.has(key)) {
+        const canonicalId = seenSkillNames.get(key);
+        // Reassign files from duplicate skill to canonical skill if not already present
+        const dupFiles = db.prepare(`SELECT * FROM skill_files WHERE skill_id = ?`).all(s.id);
+        for (const df of dupFiles) {
+          const hasCanonicalFile = db.prepare(`SELECT id FROM skill_files WHERE skill_id = ? AND LOWER(file_path) = LOWER(?)`).get(canonicalId, df.file_path);
+          if (!hasCanonicalFile) {
+            db.prepare(`UPDATE skill_files SET skill_id = ? WHERE id = ?`).run(canonicalId, df.id);
+          } else {
+            db.prepare(`DELETE FROM skill_files WHERE id = ?`).run(df.id);
+          }
+        }
+        db.prepare(`DELETE FROM skills WHERE id = ?`).run(s.id);
+      } else {
+        seenSkillNames.set(key, s.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[WARN] Skill deduplication check:', err.message);
   }
 }
 

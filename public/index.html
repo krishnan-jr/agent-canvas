@@ -84,6 +84,11 @@
         Export
       </button>
 
+      <div class="live-sync-indicator" id="live-sync-indicator" title="Live Sync: Connected to workspace file watcher & MCP">
+        <span class="live-sync-dot"></span>
+        <span class="live-sync-text">Live Sync</span>
+      </div>
+
       <button id="btn-theme-toggle" class="btn btn-secondary btn-icon-only" title="Toggle theme"></button>
 
       <!-- 3-Dot More Actions Menu -->
@@ -432,6 +437,23 @@
             <span>Markdown & YAML Frontmatter</span>
             <span id="editor-line-indicator" class="pane-sub-info">Line 1</span>
           </div>
+
+          <!-- In-DOM External Update Conflict Alert Banner -->
+          <div id="editor-conflict-banner" class="editor-conflict-banner hidden">
+            <div class="conflict-banner-content">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke: var(--sky-core)" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+              <div class="conflict-banner-text">
+                <strong>External Update Detected:</strong> This agent was modified externally on disk or by an AI tool.
+              </div>
+            </div>
+            <div class="conflict-banner-actions">
+              <button type="button" class="btn btn-primary btn-xs" id="btn-conflict-load">Load External Changes</button>
+              <button type="button" class="btn btn-secondary btn-xs" id="btn-conflict-dismiss">Keep My Draft</button>
+            </div>
+          </div>
+
           <textarea id="modal-editor-textarea" class="modal-textarea" spellcheck="false"></textarea>
           <div id="editor-validation-banner" class="validation-banner hidden"></div>
         </div>

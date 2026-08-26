@@ -115,12 +115,12 @@ export function importProjectBundle(bundleData, options = {}) {
       throw new Error(`Target project "${targetProjectId}" to overwrite does not exist.`);
     }
 
-    // Clean existing nodes, edges, skills for this project
+    // Clean existing nodes and edges for this project
     const existingNodes = getNodesByProject(targetProjectId);
     existingNodes.forEach(n => deleteNode(n.id));
 
-    const existingSkills = getSkillsByProject(targetProjectId);
-    existingSkills.forEach(s => deleteSkill(s.id));
+    const existingEdges = getEdgesByProject(targetProjectId);
+    existingEdges.forEach(e => deleteEdge(e.id));
 
     // Update title/description if provided
     if (options.name || rawProject.name) {

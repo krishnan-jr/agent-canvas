@@ -1,7 +1,7 @@
 ---
 role: researcher
 tools: [web_search, browser_page]
-temperature: 0.2
+temperature: 0.2    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"    label: "Next"
 routes:
   - on: pass
     target: evaluator-7.md

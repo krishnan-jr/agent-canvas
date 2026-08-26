@@ -16,6 +16,7 @@ import {
   getEdgesByProject,
   saveEdge,
   deleteEdge,
+  getAllSkills,
   getSkillsByProject,
   getSkillById,
   getSkillByName,
@@ -42,11 +43,13 @@ import {
   exportToZip,
   SUPPORTED_TARGETS
 } from './exporters/index.js';
-import { validateAgentSchema, validateGraphTopology } from './validator.js';
+import { unzipArchive } from './exporters/zipBuilder.js';
+import { validateAgentSchema, validateGraphTopology, parseAgentYaml } from './validator.js';
 import { executeWorkflowStream, resumeApprovalSession } from './llmRunner.js';
 import { handleMcpMessage } from './mcpServer.js';
 import { getAvailableProviders, streamChatCopilot } from './chatEngine.js';
 import { exportProjectBundle, importProjectBundle } from './projectBundle.js';
+import { eventBus } from './eventBus.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -119,6 +122,22 @@ const server = http.createServer(async (req, res) => {
 
   try {
     // ==========================================
+    // REAL-TIME SERVER-SENT EVENTS (SSE)
+    // ==========================================
+
+    // GET /api/events (Live real-time push stream for canvas, disk, and MCP sync)
+    if (pathname === '/api/events' && method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      eventBus.addClient(res);
+      return;
+    }
+
+    // ==========================================
     // PROJECTS API
     // ==========================================
 
@@ -136,6 +155,7 @@ const server = http.createServer(async (req, res) => {
       }
       const project = createProject(body);
       getProjectDirPath(project);
+      eventBus.broadcast('project_updated', { projectId: project.id, action: 'project_created', project });
       return sendJson(res, 201, { success: true, project });
     }
 
@@ -154,6 +174,7 @@ const server = http.createServer(async (req, res) => {
       const body = await parseJsonBody(req);
       const project = updateProject(id, body);
       if (!project) return sendJson(res, 404, { success: false, error: 'Project not found' });
+      eventBus.broadcast('project_updated', { projectId: id, action: 'project_updated', project });
       return sendJson(res, 200, { success: true, project });
     }
 
@@ -165,6 +186,7 @@ const server = http.createServer(async (req, res) => {
         removeProjectDir(existing);
       }
       deleteProject(id);
+      eventBus.broadcast('project_updated', { projectId: id, action: 'project_deleted' });
       return sendJson(res, 200, { success: true, id });
     }
 
@@ -190,6 +212,7 @@ const server = http.createServer(async (req, res) => {
       }
       const node = saveNode(body, projectId);
       syncNodeToDisk(node);
+      eventBus.broadcast('graph_updated', { projectId, action: 'node_created', node });
       return sendJson(res, 201, { success: true, node });
     }
 
@@ -217,6 +240,7 @@ const server = http.createServer(async (req, res) => {
         syncNodeToDisk(sourceNode);
       }
 
+      eventBus.broadcast('graph_updated', { projectId, action: 'edge_created', edge });
       return sendJson(res, 201, { success: true, edge });
     }
 
@@ -264,6 +288,11 @@ const server = http.createServer(async (req, res) => {
       body.id = id;
       const node = saveNode(body, body.project_id);
       syncNodeToDisk(node);
+      eventBus.broadcast('node_updated', {
+        projectId: node.project_id,
+        nodeId: node.id,
+        node
+      });
       return sendJson(res, 200, { success: true, node });
     }
 
@@ -271,10 +300,16 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/nodes/') && method === 'DELETE') {
       const id = decodeURIComponent(pathname.replace('/api/nodes/', ''));
       const existing = getNodeById(id);
+      const projId = existing ? existing.project_id : 'project-default';
       if (existing) {
         removeNodeFromDisk(existing);
       }
       deleteNode(id);
+      eventBus.broadcast('graph_updated', {
+        projectId: projId,
+        action: 'node_deleted',
+        nodeId: id
+      });
       return sendJson(res, 200, { success: true, id });
     }
 
@@ -282,11 +317,17 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/edges/') && method === 'DELETE') {
       const id = decodeURIComponent(pathname.replace('/api/edges/', ''));
       const existing = getEdgesByProject('project-default').find(e => e.id === id);
+      const projId = existing ? existing.project_id : 'project-default';
       deleteEdge(id);
       if (existing) {
         const sourceNode = getNodeById(existing.source_id);
         if (sourceNode) syncNodeToDisk(sourceNode);
       }
+      eventBus.broadcast('graph_updated', {
+        projectId: projId,
+        action: 'edge_deleted',
+        edgeId: id
+      });
       return sendJson(res, 200, { success: true, id });
     }
 
@@ -298,17 +339,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { success: true, ...result });
     }
 
-    // GET /api/projects/:id/skills
+    // GET /api/skills (Global Skills Catalog) & GET /api/projects/:id/skills (compat)
     const skillsListMatch = pathname.match(/^\/api\/projects\/([^/]+)\/skills$/);
-    if (skillsListMatch && method === 'GET') {
-      const projectId = decodeURIComponent(skillsListMatch[1]);
-      const skills = getSkillsByProject(projectId);
+    if ((pathname === '/api/skills' || skillsListMatch) && method === 'GET') {
+      const skills = getAllSkills();
       return sendJson(res, 200, { success: true, skills });
     }
 
-    // POST /api/projects/:id/skills (Create skill)
-    if (skillsListMatch && method === 'POST') {
-      const projectId = decodeURIComponent(skillsListMatch[1]);
+    // POST /api/skills & POST /api/projects/:id/skills (Create skill in Global Catalog)
+    if ((pathname === '/api/skills' || skillsListMatch) && method === 'POST') {
       const body = await parseJsonBody(req);
       const name = (body.name || 'new-skill').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
       const description = body.description || '';
@@ -316,7 +355,7 @@ const server = http.createServer(async (req, res) => {
       const skill = saveSkill({
         name,
         description
-      }, projectId);
+      });
 
       // Create default SKILL.md if not exists
       const defaultSkillMd = body.skillMd || `---
@@ -335,22 +374,48 @@ Detailed runbook and instructions for this skill.
       });
 
       const updated = getSkillById(skill.id);
+      eventBus.broadcast('skills_updated', { action: 'skill_created', skill: updated });
       return sendJson(res, 201, { success: true, skill: updated });
     }
 
-    // POST /api/projects/:id/skills/upload (Upload skill with multiple files)
+    // POST /api/skills/upload & POST /api/projects/:id/skills/upload (Global ZIP / Files upload)
     const skillsUploadMatch = pathname.match(/^\/api\/projects\/([^/]+)\/skills\/upload$/);
-    if (skillsUploadMatch && method === 'POST') {
-      const projectId = decodeURIComponent(skillsUploadMatch[1]);
+    if ((pathname === '/api/skills/upload' || skillsUploadMatch) && method === 'POST') {
       const body = await parseJsonBody(req);
-      const name = (body.name || 'imported-skill').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-      const description = body.description || '';
-      const files = Array.isArray(body.files) ? body.files : [];
+      let files = Array.isArray(body.files) ? body.files : [];
+
+      // If zipBase64 is supplied, unpack with server-side node:zlib
+      if (body.zipBase64 && typeof body.zipBase64 === 'string') {
+        try {
+          const zipBuf = Buffer.from(body.zipBase64, 'base64');
+          const unzipped = unzipArchive(zipBuf);
+          if (unzipped && unzipped.length > 0) {
+            files = unzipped;
+          }
+        } catch (e) {
+          console.warn('[WARN] Server zipBase64 unpacking failed, falling back to files payload:', e.message);
+        }
+      }
+
+      let name = (body.name || 'imported-skill').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      let description = body.description || '';
+
+      // Check if SKILL.md exists to extract frontmatter metadata
+      const skillMdFile = files.find(f => f.file_path && f.file_path.toLowerCase() === 'skill.md');
+      if (skillMdFile && skillMdFile.content) {
+        const { frontmatter } = parseAgentYaml(skillMdFile.content);
+        if (frontmatter.name && (!body.name || body.name === 'imported-skill' || body.name.endsWith('-zip'))) {
+          name = String(frontmatter.name).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        }
+        if (frontmatter.description && !body.description) {
+          description = String(frontmatter.description).trim();
+        }
+      }
 
       const skill = saveSkill({
         name,
         description
-      }, projectId);
+      });
 
       let hasSkillMd = false;
       for (const f of files) {
@@ -358,7 +423,8 @@ Detailed runbook and instructions for this skill.
           saveSkillFile({
             skill_id: skill.id,
             file_path: f.file_path,
-            content: f.content
+            content: f.content,
+            is_binary: f.is_binary || 0
           });
           if (f.file_path.toLowerCase() === 'skill.md') hasSkillMd = true;
         }
@@ -373,6 +439,7 @@ Detailed runbook and instructions for this skill.
       }
 
       const updated = getSkillById(skill.id);
+      eventBus.broadcast('skills_updated', { action: 'skill_uploaded', skill: updated });
       return sendJson(res, 201, { success: true, skill: updated });
     }
 
@@ -381,10 +448,9 @@ Detailed runbook and instructions for this skill.
       return sendJson(res, 200, { success: true, templates: SKILL_TEMPLATES });
     }
 
-    // POST /api/projects/:id/skills/from-template (Instantiate skill from template)
+    // POST /api/skills/from-template & POST /api/projects/:id/skills/from-template
     const skillFromTemplateMatch = pathname.match(/^\/api\/projects\/([^/]+)\/skills\/from-template$/);
-    if (skillFromTemplateMatch && method === 'POST') {
-      const projectId = decodeURIComponent(skillFromTemplateMatch[1]);
+    if ((pathname === '/api/skills/from-template' || skillFromTemplateMatch) && method === 'POST') {
       const body = await parseJsonBody(req);
       const templateName = (body.templateName || '').trim().toLowerCase();
       const template = SKILL_TEMPLATES.find(t => t.name.toLowerCase() === templateName);
@@ -395,7 +461,7 @@ Detailed runbook and instructions for this skill.
       const skill = saveSkill({
         name: template.name,
         description: template.description
-      }, projectId);
+      });
 
       for (const f of template.files) {
         saveSkillFile({
@@ -406,6 +472,7 @@ Detailed runbook and instructions for this skill.
       }
 
       const updated = getSkillById(skill.id);
+      eventBus.broadcast('skills_updated', { action: 'skill_created', skill: updated });
       return sendJson(res, 201, { success: true, skill: updated });
     }
 
@@ -422,7 +489,8 @@ Detailed runbook and instructions for this skill.
         ...existing,
         name: body.name ? body.name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-') : existing.name,
         description: body.description !== undefined ? body.description : existing.description
-      }, existing.project_id);
+      });
+      eventBus.broadcast('skills_updated', { action: 'skill_updated', skill: updated });
       return sendJson(res, 200, { success: true, skill: updated });
     }
 
@@ -430,6 +498,7 @@ Detailed runbook and instructions for this skill.
     if (skillDetailMatch && method === 'DELETE') {
       const id = decodeURIComponent(skillDetailMatch[1]);
       deleteSkill(id);
+      eventBus.broadcast('skills_updated', { action: 'skill_deleted', skillId: id });
       return sendJson(res, 200, { success: true, id });
     }
 
@@ -454,14 +523,17 @@ Detailed runbook and instructions for this skill.
         file_path: filePath,
         content: content
       });
+      eventBus.broadcast('skills_updated', { action: 'file_saved', skillId: id, file });
       return sendJson(res, 200, { success: true, file });
     }
 
     // DELETE /api/skills/:id/files/:fileId
     const skillFileDelMatch = pathname.match(/^\/api\/skills\/([^/]+)\/files\/([^/]+)$/);
     if (skillFileDelMatch && method === 'DELETE') {
+      const id = decodeURIComponent(skillFileDelMatch[1]);
       const fileId = decodeURIComponent(skillFileDelMatch[2]);
       deleteSkillFile(fileId);
+      eventBus.broadcast('skills_updated', { action: 'file_deleted', skillId: id, fileId });
       return sendJson(res, 200, { success: true, fileId });
     }
 
@@ -580,6 +652,10 @@ Detailed runbook and instructions for this skill.
         };
 
         const result = importProjectBundle(bundleData, options);
+        if (result.success && result.project) {
+          eventBus.broadcast('project_updated', { projectId: result.project.id, action: 'bundle_imported' });
+          eventBus.broadcast('graph_updated', { projectId: result.project.id, action: 'bundle_imported' });
+        }
         return sendJson(res, 200, result);
       } catch (err) {
         console.error('Failed to import project bundle:', err);

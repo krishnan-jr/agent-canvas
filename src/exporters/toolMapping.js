@@ -10,8 +10,11 @@
 /** Universal name -> Claude Code tool name(s). */
 export const CLAUDE_TOOL_MAP = {
   read: ['Read'],
+  file_reader: ['Read'],
   grep: ['Grep'],
+  grep_search: ['Grep'],
   glob: ['Glob'],
+  find_files: ['Glob'],
   edit: ['Edit'],
   patch: ['Edit'],
   file_writer: ['Write'],
@@ -19,6 +22,7 @@ export const CLAUDE_TOOL_MAP = {
   bash: ['Bash'],
   terminal: ['Bash'],
   task: ['Task'],
+  call_subagent: ['Task'],
   todowrite: ['TodoWrite'],
   question: ['AskUserQuestion'],
   webfetch: ['WebFetch'],
@@ -32,8 +36,11 @@ export const CLAUDE_TOOL_MAP = {
 /** Universal name -> OpenCode tool name. OpenCode's vocabulary is already lowercase. */
 export const OPENCODE_TOOL_MAP = {
   read: 'read',
+  file_reader: 'read',
   grep: 'grep',
+  grep_search: 'grep',
   glob: 'glob',
+  find_files: 'glob',
   edit: 'edit',
   patch: 'patch',
   file_writer: 'write',
@@ -41,6 +48,7 @@ export const OPENCODE_TOOL_MAP = {
   bash: 'bash',
   terminal: 'bash',
   task: 'task',
+  call_subagent: 'task',
   todowrite: 'todowrite',
   question: 'question',
   webfetch: 'webfetch',

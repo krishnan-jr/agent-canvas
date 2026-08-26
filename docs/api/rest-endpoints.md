@@ -98,6 +98,55 @@ Streams a standard `.zip` archive containing the transpiled project files.
 
 ---
 
+## Global Skills API
+
+### `GET /api/skills`
+List all global skills in the catalog.
+
+### `POST /api/skills`
+Create a new skill in the global catalog.
+- **Request Body**:
+  ```json
+  {
+    "name": "security-audit",
+    "description": "Dependency vulnerability scanning and policy verification"
+  }
+  ```
+
+### `POST /api/skills/upload`
+Upload and extract a skill package as a `.zip` archive or multi-file payload.
+- **Request Body**:
+  ```json
+  {
+    "name": "git-workflow",
+    "description": "Conventional commit runbooks",
+    "zipBase64": "<base64-encoded-zip>"
+  }
+  ```
+
+### `GET /api/skills/templates`
+List all built-in starter skill templates.
+
+### `POST /api/skills/from-template`
+Instantiate a built-in skill template into the global library.
+- **Request Body**:
+  ```json
+  {
+    "templateName": "test-runner"
+  }
+  ```
+
+### `GET /api/skills/:id/files`
+List all auxiliary files (scripts, markdown references) for a skill.
+
+### `POST /api/skills/:id/files`
+Create or update a file inside a skill package.
+
+### `DELETE /api/skills/:id`
+Delete a skill from the global library and disk.
+
+---
+
 ## Filesystem Directory API
 
 ### `GET /api/filesystem/directories?path=./workspace`
